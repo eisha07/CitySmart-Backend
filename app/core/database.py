@@ -16,7 +16,9 @@ engine = create_async_engine(
     echo=False,  # Set to True during deep debugging sessions
     pool_size=20,  # Maintain a healthy connection pool size for multi-agent loops
     max_overflow=10,
-    pool_pre_ping=True  # Automatically check connection liveliness before executing queries
+    pool_pre_ping=True,  # Automatically check connection liveliness before executing queries
+    pool_recycle=1800,  # Recycle connections after 30 minutes to prevent timeouts
+    pool_timeout=30     # Prevent infinite hangs when acquiring connections from pool
 )
 
 # Construct our scoped session maker for route-level dependency injection
