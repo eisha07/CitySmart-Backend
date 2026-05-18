@@ -1,13 +1,24 @@
 import json
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, Content, Part
 from vertexai.preview.vision_models import ImageGenerationModel
 
 class UrbanAgentSimulationEngine:
     def __init__(self):
-        # Target Gemini 1.5 Pro to manage the complex semantic boundaries of 10 concurrent personas
-        self.model = GenerativeModel("gemini-1.5-pro")
-        # Target Imagen 3 for high-fidelity architectural concept rendering
-        self.imagen_model = ImageGenerationModel.from_pretrained("imagen-3.0-generate-002")
+        # Initialize as None for lazy loading to prevent GoogleAuthError during module imports
+        self._model = None
+        self._imagen_model = None
+
+    @property
+    def model(self):
+        if self._model is None:
+            self._model = GenerativeModel("gemini-1.5-pro")
+        return self._model
+
+    @property
+    def imagen_model(self):
+        if self._imagen_model is None:
+            self._imagen_model = ImageGenerationModel.from_pretrained("imagen-3.0-generate-002")
+        return self._imagen_model
 
     async def discover_dynamic_stakeholders(self, document_context: str) -> list[dict]:
         """Analyzes the project proposal text and dynamically extracts exactly 10 highly differentiated citizen profiles."""
@@ -73,14 +84,24 @@ class UrbanAgentSimulationEngine:
         raw_text = response.text.strip().replace("```json", "").replace("```", "")
         return json.loads(raw_text)
 
-    async def interrogate_persona(self, system_instruction: str, history: list, user_message: str) -> str:
-        """Maintains an active, stateful conversation stream inside any chosen citizen's dynamic persona block."""
+    async def interrogate_persona(self, system_instruction: str, history: list[dict], user_message: str) -> str:
+        """Maintains an active, stateful dialogue inside a specific citizen's semantic roleplay boundary."""
+        # 1. Instantiate the model with the exact system instruction persona block
         chat_agent = GenerativeModel("gemini-1.5-pro", system_instruction=system_instruction)
-        chat = chat_agent.start_chat()
+        
+        # 2. Reconstruct the chat history parameters safely using Vertex AI Content objects
+        formatted_history = []
         for msg in history:
-            if msg.get('role') == 'user':
-                chat.send_message(msg.get('content', ''))
-        response = await chat.send_message_async(user_message)
+            role = "user" if msg.get("role") == "user" else "model"
+            formatted_history.append(
+                Content(role=role, parts=[Part.from_text(text=msg.get("content", ""))])
+            )
+            
+        # 3. Spin up an active chat session seeded with the historical logs
+        chat_session = chat_agent.start_chat(history=formatted_history)
+        
+        # 4. Stream transmission asynchronously out to the cloud broker
+        response = await chat_session.send_message_async(user_message)
         return response.text
 
     async def render_architectural_concept(self, element: str, context: str) -> dict:

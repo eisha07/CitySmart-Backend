@@ -33,10 +33,16 @@ class SimulationStateResponse(BaseModel):
     spatial_telemetry: Dict[str, Any]
 
 class ChatInterrogationRequest(BaseModel):
-    project_id: str
-    persona_system_instruction: str
-    user_message: str
-    chat_history: List[Dict[str, str]] = Field(default=[], description="List of maps following [{'role': 'user'|'model', 'content': '...'}]")
+    project_id: str = Field(..., description="The unique identifier of the target project domain.")
+    persona_system_instruction: str = Field(..., description="The explicit anthropomorphic system context generated for this specific citizen.")
+    user_message: str = Field(..., description="The active engineering query or adjustment pitched by the city official.")
+    chat_history: List[Dict[str, str]] = Field(
+        default=[], 
+        description="The multi-turn conversational log array structured as [{'role': 'user'|'model', 'content': '...'}]"
+    )
+
+class ChatInterrogationResponse(BaseModel):
+    reply: str = Field(..., description="The first-person qualitative pushback or agreement from the citizen persona.")
 
 class ProjectAmendmentRequest(BaseModel):
     project_id: str

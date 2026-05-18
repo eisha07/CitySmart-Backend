@@ -10,6 +10,7 @@ from app.schemas.simulation import (
     BlueprintRevision,
     CitizenPersonaProfile,
     ChatInterrogationRequest,
+    ChatInterrogationResponse,
     ConceptRenderRequest,
     ConceptRenderResponse
 )
@@ -84,17 +85,24 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Phase 8 Pipeline Failure: {str(e)}")
 
-@router.post("/chat", status_code=status.HTTP_200_OK)
+@router.post("/chat", response_model=ChatInterrogationResponse, status_code=status.HTTP_200_OK)
 async def chat_with_citizen_persona(payload: ChatInterrogationRequest):
+    """Allows a user to pitch direct layout changes to a specific persona and get immediate qualitative pushback."""
     try:
-        reply = await simulation_engine.interrogate_persona(
+        # Pass the payload directly down to the stateful service layer execution track
+        agent_reply = await simulation_engine.interrogate_persona(
             system_instruction=payload.persona_system_instruction,
             history=payload.chat_history,
             user_message=payload.user_message
         )
-        return {"reply": reply}
+        
+        return ChatInterrogationResponse(reply=agent_reply)
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Active Chat Collapse: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Interactive Chat Session Failure: {str(e)}"
+        )
 
 @router.post("/render-concept", response_model=ConceptRenderResponse, status_code=200)
 async def generate_blueprint_render(payload: ConceptRenderRequest):
