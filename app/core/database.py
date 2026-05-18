@@ -5,7 +5,7 @@ from app.core.config import settings
 
 # Fallback to a safe async template string if DATABASE_URL isn't explicitly cached yet in local .env
 # Secret Manager tokens will overwrite this at runtime in production envs
-DATABASE_URL = os.getenv(
+DATABASE_URL = settings.DATABASE_URL or os.getenv(
     "DATABASE_URL", 
     f"postgresql+asyncpg://postgres:placeholder_password@127.0.0.1:5432/{settings.GCP_PROJECT_ID}"
 )

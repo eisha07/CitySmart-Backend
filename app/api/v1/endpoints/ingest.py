@@ -1,15 +1,26 @@
 import uuid
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from pydantic import BaseModel, Field
+from typing import Optional
 from app.core.database import get_db
 from app.models.database import ProjectModel, ProjectVersionModel, DocumentInsightModel
-from app.schemas.project import ProjectCreate, ProjectResponse
-from app.schemas.document import DocumentIngestPayload
+from app.schemas.project import ProjectResponse
 from app.schemas.simulation import ProjectAmendmentRequest
 from app.services import vertex_service, gcs_service, pubsub_service
+from vertexai.generative_models import GenerativeModel, GenerationConfig
 
 router = APIRouter(prefix="/projects", tags=["Urban Ingestion Engine"])
+
+class UnstructuredIngestRequest(BaseModel):
+    user_prompt: str = Field(..., description="The raw, unstructured textual layout description from the user.")
+
+class ExtractedProjectSchema(BaseModel):
+    project_id: str
+    title: str
+    baseline_proposal_text: str
 
 def chunk_text_by_semantic_bounds(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
     """Splits large text payloads cleanly while preserving structural context boundaries."""
@@ -22,33 +33,68 @@ def chunk_text_by_semantic_bounds(text: str, chunk_size: int = 1000, overlap: in
             break
     return chunks
 
-@router.post("/ingest", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
-async def ingest_urban_document(
-    meta: ProjectCreate,
-    payload: DocumentIngestPayload,
+@router.post("/ingest", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def ingest_unstructured_urban_document(
+    payload: UnstructuredIngestRequest,
     db: AsyncSession = Depends(get_db)
 ):
+    """Accepts unstructured user prompts and extracts the mandatory system schema fields using Gemini Flash."""
     try:
+        extraction_prompt = f"""
+        Analyze the following raw urban planning proposal text. Extract or generate a valid system 'project_id' (lowercase, hyphenated, short slug), a clear descriptive 'title', and clean up the 'baseline_proposal_text'.
+        
+        RAW USER INPUT:
+        {payload.user_prompt}
+        """
+        
+        # Invoke Gemini 1.5 Flash forcing structured JSON mapping outputs matching our schema
+        model = GenerativeModel("gemini-1.5-flash")
+        response = await model.generate_content_async(
+            extraction_prompt,
+            generation_config=GenerationConfig(
+                response_mime_type="application/json",
+                response_schema=ExtractedProjectSchema,
+                temperature=0.1
+            ),
+        )
+        
+        # Parse the structured string safely back into native execution logic
+        extracted_data = json.loads(response.text.strip())
+        
+        proj_id = extracted_data["project_id"]
+        title = extracted_data["title"]
+        proposal_text = extracted_data["baseline_proposal_text"]
+
+        # Check if project already exists
+        existing_proj = await db.execute(select(ProjectModel).where(ProjectModel.id == proj_id))
+        if existing_proj.scalar_one_or_none():
+            # Generate a unique slug suffix to prevent collision
+            proj_id = f"{proj_id}-{uuid.uuid4().hex[:4]}"
+
         # 1. Archive the entire raw submission up to Google Cloud Storage
-        blob_name = f"raw_ingestion_logs/{meta.id}_{uuid.uuid4().hex[:6]}.txt"
-        await gcs_service.upload_text_log(blob_name, payload.raw_text)
+        blob_name = f"raw_ingestion_logs/{proj_id}_{uuid.uuid4().hex[:6]}.txt"
+        await gcs_service.upload_text_log(blob_name, proposal_text)
 
         # 2. Persist our Core Project Record Map baseline inside PostgreSQL
-        project = ProjectModel(id=meta.id, name=meta.name, description=meta.description)
+        project = ProjectModel(
+            id=proj_id, 
+            name=title, 
+            description=f"Automatically extracted from unstructured user prompt: {payload.user_prompt[:100]}..."
+        )
         db.add(project)
         await db.flush()
 
         # 3. Create the initial project version v1
         initial_version = ProjectVersionModel(
-            project_id=meta.id,
+            project_id=proj_id,
             version_tag="v1",
-            raw_text=payload.raw_text
+            raw_text=proposal_text
         )
         db.add(initial_version)
         await db.flush()
 
         # 4. Process data strings into semantic chunks
-        text_chunks = chunk_text_by_semantic_bounds(payload.raw_text)
+        text_chunks = chunk_text_by_semantic_bounds(proposal_text)
         if text_chunks:
             # 5. Asynchronously invoke Vertex AI to extract our high-dimensional embedding matrices
             embeddings = await vertex_service.generate_embeddings(text_chunks)
@@ -57,7 +103,7 @@ async def ingest_urban_document(
             for content, embedding in zip(text_chunks, embeddings):
                 chunk_record = DocumentInsightModel(
                     version_id=initial_version.id,
-                    project_id=meta.id,
+                    project_id=proj_id,
                     chunk_content=content,
                     embedding_vector=embedding
                 )
@@ -65,18 +111,25 @@ async def ingest_urban_document(
             await db.commit()
 
         # 7. Dispatch an asynchronous event processing message into our Pub/Sub pipeline
-        await pubsub_service.publish_simulation_trigger(meta.id)
+        await pubsub_service.publish_simulation_trigger(proj_id)
         
-        # Refresh the object state to fully capture nested relational data bindings
-        await db.refresh(project)
-        return project
-
+        return {
+            "status": "successfully_extracted_and_ingested",
+            "extracted_metadata": {
+                "project_id": proj_id,
+                "title": title
+            },
+            "saved_payload": {
+                "baseline_proposal_text": proposal_text
+            }
+        }
+        
     except Exception as e:
         await db.rollback()
         print(f"🔴 Fatal Ingestion Failover: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal ingestion pipeline exception occurred: {str(e)}"
+            detail=f"Automated Schema Extraction Layer Exception: {str(e)}"
         )
 
 @router.post("/amend", status_code=status.HTTP_201_CREATED)

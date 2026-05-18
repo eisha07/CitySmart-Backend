@@ -11,7 +11,10 @@ async def app_lifespan_handler(app: FastAPI):
     print("✨ Core Server Initialization Sequence Booting up...")
     
     # Securely set GCP application environment key references
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "temp_sa_key.json"
+    cred_file = "sinuous-branch-411610-d4e78e429c6c.json"
+    if not os.path.exists(cred_file):
+        cred_file = "temp_sa_key.json"
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_file
     
     # Fire up our non-blocking Pub/Sub worker queue streaming listener
     pubsub_stream = pubsub_worker.start_listening()
