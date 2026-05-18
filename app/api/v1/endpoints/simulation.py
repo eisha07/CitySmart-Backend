@@ -13,7 +13,7 @@ from app.schemas.simulation import (
     ChatInterrogationRequest,
     ChatInterrogationResponse,
     ConceptRenderRequest,
-    ConceptRenderResponse
+    ConceptRenderResponse,
 )
 from app.services.agent_engine import simulation_engine, client
 from google.genai import types
@@ -23,22 +23,36 @@ import json
 
 router = APIRouter(prefix="/simulation", tags=["Agent Simulation Core"])
 
+
 def generate_enhanced_friction_telemetry(project_id: str) -> dict:
-    base_lat, base_lng = (33.6853, 73.0312) if "islamabad" in project_id.lower() else (31.5424, 74.3462)
+    base_lat, base_lng = (
+        (33.6853, 73.0312) if "islamabad" in project_id.lower() else (31.5424, 74.3462)
+    )
     features = []
     for idx in range(10):
-        coords = [[base_lng + random.uniform(-0.003, 0.003), base_lat + random.uniform(-0.003, 0.003)] for _ in range(3)]
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "LineString", "coordinates": coords},
-            "properties": {
-                "agent_id": f"agent_{idx}",
-                "profile": "vulnerable_demographic" if idx % 2 == 0 else "transit_operator",
-                "friction_intensity": round(random.uniform(0.6, 0.99), 2),
-                "lighting_vector_safety": "low" if idx % 3 == 0 else "high"
+        coords = [
+            [
+                base_lng + random.uniform(-0.003, 0.003),
+                base_lat + random.uniform(-0.003, 0.003),
+            ]
+            for _ in range(3)
+        ]
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": coords},
+                "properties": {
+                    "agent_id": f"agent_{idx}",
+                    "profile": (
+                        "vulnerable_demographic" if idx % 2 == 0 else "transit_operator"
+                    ),
+                    "friction_intensity": round(random.uniform(0.6, 0.99), 2),
+                    "lighting_vector_safety": "low" if idx % 3 == 0 else "high",
+                },
             }
-        })
+        )
     return {"type": "FeatureCollection", "features": features}
+
 
 @router.get("/{project_id}/state", response_model=SimulationStateResponse)
 async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_db)):
@@ -51,10 +65,17 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
         )
         versions = version_result.scalars().all()
         if not versions:
-            raise HTTPException(status_code=404, detail="Parent project boundary profile not found. Create v1 first.")
+            raise HTTPException(
+                status_code=404,
+                detail="Parent project boundary profile not found. Create v1 first.",
+            )
 
         baseline_text = versions[0].raw_text
-        amendment_text = versions[-1].raw_text if len(versions) > 1 else "No active amendments or revisions."
+        amendment_text = (
+            versions[-1].raw_text
+            if len(versions) > 1
+            else "No active amendments or revisions."
+        )
 
         # 2. Retrieve relevant text chunks using pgvector storage context
         insight_result = await db.execute(
@@ -63,7 +84,11 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
             .limit(5)
         )
         insights = insight_result.scalars().all()
-        vector_context = " ".join([insight.chunk_content for insight in insights]) if insights else baseline_text
+        vector_context = (
+            " ".join([insight.chunk_content for insight in insights])
+            if insights
+            else baseline_text
+        )
 
         # 3. Build the prompt for the multi-agent debate simulation and feasibility scorecard
         simulation_prompt = f"""
@@ -93,13 +118,13 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
         # Invoke Gemini 2.5 Flash with strictly typed Pydantic response_schema
         # We are using gemini-2.5-flash as it is fully active, quota-approved, and incredibly fast!
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=simulation_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=SimulationStateResponse,
-                temperature=0.7
-            )
+                temperature=0.7,
+            ),
         )
 
         data = json.loads(response.text.strip())
@@ -110,35 +135,45 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
         data["scores"] = {
             "social_impact_score": float(data["social_feasibility_score"]),
             "economic_viability_score": float(data["economic_viability_score"]),
-            "political_feasibility_score": float(data["political_acceptance_score"])
+            "political_feasibility_score": float(data["political_acceptance_score"]),
         }
         data["discovered_personas"] = [
-            {"name": p["name"], "type": p["demographic_role"], "system_instruction": p["system_instruction"]}
+            {
+                "name": p["name"],
+                "type": p["demographic_role"],
+                "system_instruction": p["system_instruction"],
+            }
             for p in data["personas"]
         ]
-        
+
         # Populate interactive live debate logs dynamically based on the generated personas
         data["live_debate_ticks"] = [
             {
                 "timestamp": "21:14",
                 "agent_profile": data["personas"][0]["demographic_role"],
-                "log_level": "CRITICAL" if data["personas"][0]["sentiment_score"] < 50 else "INFO",
-                "message": f"Critical stance from {data['personas'][0]['name']}: Stance evaluated at {data['personas'][0]['sentiment_score']}% favorability. Issues flagged: accessibility and local traffic integration."
+                "log_level": (
+                    "CRITICAL"
+                    if data["personas"][0]["sentiment_score"] < 50
+                    else "INFO"
+                ),
+                "message": f"Critical stance from {data['personas'][0]['name']}: Stance evaluated at {data['personas'][0]['sentiment_score']}% favorability. Issues flagged: accessibility and local traffic integration.",
             },
             {
                 "timestamp": "21:16",
                 "agent_profile": data["personas"][1]["demographic_role"],
-                "log_level": "WARNING" if data["personas"][1]["sentiment_score"] < 60 else "INFO",
-                "message": f"Feedback log from {data['personas'][1]['name']}: Stance evaluated at {data['personas'][1]['sentiment_score']}% favorability. Highlights commercial or vendor placement trade-offs."
-            }
+                "log_level": (
+                    "WARNING" if data["personas"][1]["sentiment_score"] < 60 else "INFO"
+                ),
+                "message": f"Feedback log from {data['personas'][1]['name']}: Stance evaluated at {data['personas'][1]['sentiment_score']}% favorability. Highlights commercial or vendor placement trade-offs.",
+            },
         ]
-        
+
         # Populate logical design catalyst blueprint revisions
         data["blueprint_revisions"] = [
             {
                 "original_element": "Standard rigid road lane boundaries and layout medians",
                 "failure_mode_detected": "Neglects micro-mobility rickshaw lanes and merchant pedestrian access boundaries",
-                "amended_design_fix": "Implement modular layout setbacks with dedicated rickshaw pick-up bays and pedestrianized walking paths as synthesized in the arbitrator verdict."
+                "amended_design_fix": "Implement modular layout setbacks with dedicated rickshaw pick-up bays and pedestrianized walking paths as synthesized in the arbitrator verdict.",
             }
         ]
         data["spatial_telemetry"] = generate_enhanced_friction_telemetry(project_id)
@@ -149,11 +184,13 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
     except Exception as e:
         print(f"🔴 Fatal Simulation Failure: {e}")
         raise HTTPException(
-            status_code=500,
-            detail=f"Simulation Pipeline Failure: {str(e)}"
+            status_code=500, detail=f"Simulation Pipeline Failure: {str(e)}"
         )
 
-@router.post("/chat", response_model=ChatInterrogationResponse, status_code=status.HTTP_200_OK)
+
+@router.post(
+    "/chat", response_model=ChatInterrogationResponse, status_code=status.HTTP_200_OK
+)
 async def chat_with_citizen_persona(payload: ChatInterrogationRequest):
     """Allows a user to pitch direct layout changes to a specific persona and get immediate qualitative pushback."""
     try:
@@ -161,16 +198,17 @@ async def chat_with_citizen_persona(payload: ChatInterrogationRequest):
         agent_reply = await simulation_engine.interrogate_persona(
             system_instruction=payload.persona_system_instruction,
             history=payload.chat_history,
-            user_message=payload.user_message
+            user_message=payload.user_message,
         )
-        
+
         return ChatInterrogationResponse(reply=agent_reply)
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Interactive Chat Session Failure: {str(e)}"
+            detail=f"Interactive Chat Session Failure: {str(e)}",
         )
+
 
 @router.post("/render-concept", response_model=ConceptRenderResponse, status_code=200)
 async def generate_blueprint_render(payload: ConceptRenderRequest):
@@ -181,7 +219,7 @@ async def generate_blueprint_render(payload: ConceptRenderRequest):
         # Execute our multimodal rendering engine pass
         render_data = await simulation_engine.render_architectural_concept(
             element=payload.design_element_description,
-            context=payload.environmental_context
+            context=payload.environmental_context,
         )
 
         return ConceptRenderResponse(
@@ -189,7 +227,9 @@ async def generate_blueprint_render(payload: ConceptRenderRequest):
             version_tag=payload.version_tag,
             element_rendered=payload.design_element_description,
             generated_image_url=render_data["url"],
-            revised_prompt_used=render_data["prompt"]
+            revised_prompt_used=render_data["prompt"],
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Multimodal Rendering Engine Exception: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Multimodal Rendering Engine Exception: {str(e)}"
+        )

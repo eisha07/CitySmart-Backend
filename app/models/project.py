@@ -3,6 +3,7 @@ from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
+
 class ProjectModel(Base):
     __tablename__ = "projects"
 
@@ -14,4 +15,6 @@ class ProjectModel(Base):
     )
 
     # Relationship link to individual vector data chunks
-    chunks = relationship("DocumentChunkModel", back_populates="project", cascade="all, delete-orphan")
+    chunks = relationship(
+        "DocumentChunkModel", back_populates="project", cascade="all, delete-orphan"
+    )

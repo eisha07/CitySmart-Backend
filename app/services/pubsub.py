@@ -2,6 +2,7 @@ import asyncio
 from google.cloud import pubsub_v1
 from app.core.config import settings
 
+
 class PubSubService:
     def __init__(self):
         self.project = settings.GCP_PROJECT_ID
@@ -22,7 +23,7 @@ class PubSubService:
             loop = asyncio.get_running_loop()
             topic_path = self.publisher.topic_path(self.project, self.topic_id)
             data_payload = project_id.encode("utf-8")
-            
+
             def _publish():
                 future = self.publisher.publish(topic_path, data=data_payload)
                 return future.result()
@@ -33,5 +34,6 @@ class PubSubService:
         except Exception as e:
             print(f"🔴 Pub/Sub Event Dispatch Failure: {e}")
             raise RuntimeError(f"Pub/Sub broker error: {str(e)}")
+
 
 pubsub_service = PubSubService()

@@ -1,32 +1,43 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
+
 class LiveTickerMessage(BaseModel):
     timestamp: str
     agent_profile: str
     log_level: str
     message: str
 
+
 class BlueprintRevision(BaseModel):
     original_element: str
     failure_mode_detected: str
     amended_design_fix: str
+
 
 class FeasibilityScores(BaseModel):
     social_impact_score: float
     economic_viability_score: float
     political_feasibility_score: float
 
+
 class CitizenPersonaProfile(BaseModel):
     name: str
     type: str
     system_instruction: str
 
+
 class CitizenPersona(BaseModel):
     name: str
     demographic_role: str
-    sentiment_score: int = Field(..., description="0 to 100 score of how much they favor the project")
-    system_instruction: str = Field(..., description="First-person prompt detailing their life, concerns, and stance for subsequent chat engagement")
+    sentiment_score: int = Field(
+        ..., description="0 to 100 score of how much they favor the project"
+    )
+    system_instruction: str = Field(
+        ...,
+        description="First-person prompt detailing their life, concerns, and stance for subsequent chat engagement",
+    )
+
 
 class SimulationStateResponse(BaseModel):
     project_id: str
@@ -35,7 +46,7 @@ class SimulationStateResponse(BaseModel):
     economic_viability_score: int
     political_acceptance_score: int
     arbitrator_verdict: str
-    
+
     # Backward compatibility properties (optional/defaulted)
     status: str = "completed"
     scores: Optional[FeasibilityScores] = None
@@ -45,28 +56,46 @@ class SimulationStateResponse(BaseModel):
     blueprint_revisions: Optional[List[BlueprintRevision]] = None
     spatial_telemetry: Optional[Dict[str, Any]] = None
 
+
 class ChatInterrogationRequest(BaseModel):
-    project_id: str = Field(..., description="The unique identifier of the target project domain.")
-    persona_system_instruction: str = Field(..., description="The explicit anthropomorphic system context generated for this specific citizen.")
-    user_message: str = Field(..., description="The active engineering query or adjustment pitched by the city official.")
+    project_id: str = Field(
+        ..., description="The unique identifier of the target project domain."
+    )
+    persona_system_instruction: str = Field(
+        ...,
+        description="The explicit anthropomorphic system context generated for this specific citizen.",
+    )
+    user_message: str = Field(
+        ...,
+        description="The active engineering query or adjustment pitched by the city official.",
+    )
     chat_history: List[Dict[str, str]] = Field(
-        default=[], 
-        description="The multi-turn conversational log array structured as [{'role': 'user'|'model', 'content': '...'}]"
+        default=[],
+        description="The multi-turn conversational log array structured as [{'role': 'user'|'model', 'content': '...'}]",
     )
 
+
 class ChatInterrogationResponse(BaseModel):
-    reply: str = Field(..., description="The first-person qualitative pushback or agreement from the citizen persona.")
+    reply: str = Field(
+        ...,
+        description="The first-person qualitative pushback or agreement from the citizen persona.",
+    )
+
 
 class ProjectAmendmentRequest(BaseModel):
     project_id: str
     version_tag: str  # e.g., "v2-amended"
     amended_proposal_text: str
 
+
 class ConceptRenderRequest(BaseModel):
     project_id: str
     version_tag: str
     design_element_description: str
-    environmental_context: Optional[str] = Field(default="Daytime, clean modern architecture, South Asian metropolitan context")
+    environmental_context: Optional[str] = Field(
+        default="Daytime, clean modern architecture, South Asian metropolitan context"
+    )
+
 
 class ConceptRenderResponse(BaseModel):
     project_id: str

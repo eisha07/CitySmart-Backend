@@ -6,12 +6,15 @@ from app.api.v1.endpoints.simulation import get_simulation_state
 
 router = APIRouter(prefix="/dashboard", tags=["Management Dashboard Views"])
 
+
 @router.get("/{project_id}", response_class=HTMLResponse)
-async def render_management_analytics_dashboard(request: Request, project_id: str, db: AsyncSession = Depends(get_db)):
+async def render_management_analytics_dashboard(
+    request: Request, project_id: str, db: AsyncSession = Depends(get_db)
+):
     try:
         # Fetch our live simulation dataset payload structured in Phase 5
         sim_data = await get_simulation_state(project_id=project_id, db=db)
-        
+
         # Programmatically construct an interactive, dark-mode administrative analytical viewport
         html_content = f"""
         <!DOCTYPE html>
@@ -94,4 +97,6 @@ async def render_management_analytics_dashboard(request: Request, project_id: st
         """
         return HTMLResponse(content=html_content, status_code=200)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Dashboard View Collapse: {{str(e)}}")
+        raise HTTPException(
+            status_code=500, detail=f"Dashboard View Collapse: {{str(e)}}"
+        )

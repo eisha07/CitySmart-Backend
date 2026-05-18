@@ -4,6 +4,7 @@ from google.cloud import storage
 from google.cloud import secretmanager
 from app.core.config import settings
 
+
 class CloudStorageService:
     def __init__(self):
         self.project = settings.GCP_PROJECT_ID
@@ -16,13 +17,16 @@ class CloudStorageService:
             self._client = storage.Client(project=self.project)
         return self._client
 
-    async def upload_text_log(self, destination_blob_name: str, text_content: str) -> str:
+    async def upload_text_log(
+        self, destination_blob_name: str, text_content: str
+    ) -> str:
         """
         Asynchronously streams text contents up into a designated GCS blob pathway
         by wrapping the blocking client execution in a thread pool executor.
         """
         try:
             loop = asyncio.get_running_loop()
+
             def _upload():
                 # Use client.bucket() lazy constructor to bypass storage.buckets.get permission checks
                 bucket = self.client.bucket(self.bucket_name)
@@ -31,10 +35,14 @@ class CloudStorageService:
                 return blob.public_url
 
             public_url = await loop.run_in_executor(None, _upload)
-            print(f"🟢 GCS Upload Success: Created storage blob '{destination_blob_name}'")
+            print(
+                f"🟢 GCS Upload Success: Created storage blob '{destination_blob_name}'"
+            )
             return public_url
         except Exception as e:
-            print(f"⚠️ GCS Upload Failed: {e}. Attempting local log archive fallback...")
+            print(
+                f"⚠️ GCS Upload Failed: {e}. Attempting local log archive fallback..."
+            )
             try:
                 local_dir = "app/static/assets/logs"
                 os.makedirs(local_dir, exist_ok=True)
@@ -47,6 +55,7 @@ class CloudStorageService:
             except Exception as fallback_err:
                 print(f"🔴 Local Fallback Failed: {fallback_err}")
                 raise RuntimeError(f"GCS operational error: {str(e)}")
+
 
 class SecretManagerService:
     def __init__(self):
@@ -65,16 +74,21 @@ class SecretManagerService:
         """
         try:
             loop = asyncio.get_running_loop()
-            secret_path = f"projects/{self.project}/secrets/{secret_id}/versions/{version_id}"
-            
+            secret_path = (
+                f"projects/{self.project}/secrets/{secret_id}/versions/{version_id}"
+            )
+
             def _access():
-                response = self.client.access_secret_version(request={"name": secret_path})
+                response = self.client.access_secret_version(
+                    request={"name": secret_path}
+                )
                 return response.payload.data.decode("UTF-8")
 
             return await loop.run_in_executor(None, _access)
         except Exception as e:
             print(f"🔴 Secret Manager Access Failure on '{secret_id}': {e}")
             raise RuntimeError(f"Secret Manager operational error: {str(e)}")
+
 
 # Instantiate reusable singletons for dependency application access points
 gcs_service = CloudStorageService()

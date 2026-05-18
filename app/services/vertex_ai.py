@@ -4,6 +4,7 @@ from google.cloud import aiplatform
 from vertexai.language_models import TextEmbeddingModel
 from app.core.config import settings
 
+
 class VertexEmbeddingService:
     def __init__(self):
         self.project = settings.GCP_PROJECT_ID
@@ -32,17 +33,19 @@ class VertexEmbeddingService:
             # Offload the blocking synchronous network call to an asynchronous executor thread
             loop = asyncio.get_running_loop()
             embeddings_response = await loop.run_in_executor(
-                None, 
-                lambda: self.model.get_embeddings(texts)
+                None, lambda: self.model.get_embeddings(texts)
             )
-            
+
             # Extract the raw float array elements out of the structural response objects
             return [emb.values for emb in embeddings_response]
-            
+
         except Exception as e:
             # Fallback debugger logging for granular tracking
             print(f"🔴 Vertex AI Embedding Generation Error: {e}")
-            raise RuntimeError(f"Failed to generate text embeddings via Vertex AI: {str(e)}")
+            raise RuntimeError(
+                f"Failed to generate text embeddings via Vertex AI: {str(e)}"
+            )
+
 
 # Instantiate a reusable single-instance connection manager token for dependency injection
 vertex_service = VertexEmbeddingService()

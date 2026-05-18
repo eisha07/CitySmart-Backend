@@ -15,29 +15,37 @@ from app.services.agent_engine import client
 
 router = APIRouter(prefix="/projects", tags=["Urban Ingestion Engine"])
 
+
 class UnstructuredIngestRequest(BaseModel):
-    user_prompt: str = Field(..., description="The raw, unstructured textual layout description from the user.")
+    user_prompt: str = Field(
+        ...,
+        description="The raw, unstructured textual layout description from the user.",
+    )
+
 
 class ExtractedProjectSchema(BaseModel):
     project_id: str
     title: str
     baseline_proposal_text: str
 
-def chunk_text_by_semantic_bounds(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
+
+def chunk_text_by_semantic_bounds(
+    text: str, chunk_size: int = 1000, overlap: int = 200
+) -> list[str]:
     """Splits large text payloads cleanly while preserving structural context boundaries."""
     words = text.split()
     chunks = []
     for i in range(0, len(words), chunk_size - overlap):
-        chunk = " ".join(words[i:i + chunk_size])
+        chunk = " ".join(words[i : i + chunk_size])
         chunks.append(chunk)
         if i + chunk_size >= len(words):
             break
     return chunks
 
+
 @router.post("/ingest", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def ingest_unstructured_urban_document(
-    payload: UnstructuredIngestRequest,
-    db: AsyncSession = Depends(get_db)
+    payload: UnstructuredIngestRequest, db: AsyncSession = Depends(get_db)
 ):
     """Accepts unstructured user prompts and extracts mandatory schema fields using explicit types.GenerateContentConfig."""
     try:
@@ -47,27 +55,29 @@ async def ingest_unstructured_urban_document(
         RAW USER INPUT:
         {payload.user_prompt}
         """
-        
+
         # Invoke Gemini 2.5 Flash using the strictly required GenerateContentConfig type wrapper
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=extraction_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=ExtractedProjectSchema,
-                temperature=0.1
-            )
+                temperature=0.1,
+            ),
         )
-        
+
         # Parse the structured string safely back into native execution logic
         extracted_data = json.loads(response.text.strip())
-        
+
         proj_id = extracted_data["project_id"]
         title = extracted_data["title"]
         proposal_text = extracted_data["baseline_proposal_text"]
 
         # Check if project already exists
-        existing_proj = await db.execute(select(ProjectModel).where(ProjectModel.id == proj_id))
+        existing_proj = await db.execute(
+            select(ProjectModel).where(ProjectModel.id == proj_id)
+        )
         if existing_proj.scalar_one_or_none():
             # Generate a unique slug suffix to prevent collision
             proj_id = f"{proj_id}-{uuid.uuid4().hex[:4]}"
@@ -78,18 +88,16 @@ async def ingest_unstructured_urban_document(
 
         # 2. Persist our Core Project Record Map baseline inside PostgreSQL
         project = ProjectModel(
-            id=proj_id, 
-            name=title, 
-            description=f"Automatically extracted from unstructured user prompt: {payload.user_prompt[:100]}..."
+            id=proj_id,
+            name=title,
+            description=f"Automatically extracted from unstructured user prompt: {payload.user_prompt[:100]}...",
         )
         db.add(project)
         await db.flush()
 
         # 3. Create the initial project version v1
         initial_version = ProjectVersionModel(
-            project_id=proj_id,
-            version_tag="v1",
-            raw_text=proposal_text
+            project_id=proj_id, version_tag="v1", raw_text=proposal_text
         )
         db.add(initial_version)
         await db.flush()
@@ -99,48 +107,51 @@ async def ingest_unstructured_urban_document(
         if text_chunks:
             # 5. Asynchronously invoke Vertex AI to extract our high-dimensional embedding matrices
             embeddings = await vertex_service.generate_embeddings(text_chunks)
-            
+
             # 6. Build and save our vector models to pgvector
             for content, embedding in zip(text_chunks, embeddings):
                 chunk_record = DocumentInsightModel(
                     version_id=initial_version.id,
                     project_id=proj_id,
                     chunk_content=content,
-                    embedding_vector=embedding
+                    embedding_vector=embedding,
                 )
                 db.add(chunk_record)
             await db.commit()
 
         # 7. Dispatch an asynchronous event processing message into our Pub/Sub pipeline
         await pubsub_service.publish_simulation_trigger(proj_id)
-        
+
         return {
             "status": "successfully_extracted_and_ingested",
-            "extracted_metadata": {
-                "project_id": proj_id,
-                "title": title
-            },
-            "saved_payload": {
-                "baseline_proposal_text": proposal_text
-            }
+            "extracted_metadata": {"project_id": proj_id, "title": title},
+            "saved_payload": {"baseline_proposal_text": proposal_text},
         }
-        
+
     except Exception as e:
         await db.rollback()
         print(f"🔴 Fatal Ingestion Failover: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Automated Schema Extraction Layer Exception: {str(e)}"
+            detail=f"Automated Schema Extraction Layer Exception: {str(e)}",
         )
 
+
 @router.post("/amend", status_code=status.HTTP_201_CREATED)
-async def amend_project_version(payload: ProjectAmendmentRequest, db: AsyncSession = Depends(get_db)):
+async def amend_project_version(
+    payload: ProjectAmendmentRequest, db: AsyncSession = Depends(get_db)
+):
     try:
         # 1. Verify that the parent project entry actually exists
-        proj_result = await db.execute(select(ProjectModel).where(ProjectModel.id == payload.project_id))
+        proj_result = await db.execute(
+            select(ProjectModel).where(ProjectModel.id == payload.project_id)
+        )
         project = proj_result.scalar_one_or_none()
         if not project:
-            raise HTTPException(status_code=404, detail="Parent project boundary profile not found. Create v1 first.")
+            raise HTTPException(
+                status_code=404,
+                detail="Parent project boundary profile not found. Create v1 first.",
+            )
 
         # 2. Prevent version tag collisions
         ver_result = await db.execute(
@@ -149,24 +160,30 @@ async def amend_project_version(payload: ProjectAmendmentRequest, db: AsyncSessi
             .where(ProjectVersionModel.version_tag == payload.version_tag)
         )
         if ver_result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail=f"Version '{payload.version_tag}' already exists for this project.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Version '{payload.version_tag}' already exists for this project.",
+            )
 
         # 3. Create our new branched project version record
         new_version = ProjectVersionModel(
             project_id=payload.project_id,
             version_tag=payload.version_tag,
-            raw_text=payload.amended_proposal_text
+            raw_text=payload.amended_proposal_text,
         )
         db.add(new_version)
         await db.flush()  # Extract the version auto-increment ID securely
 
         # 4. Perform localized semantic chunking (Simulated RAG pass)
-        chunks = [payload.amended_proposal_text[i:i+1500] for i in range(0, len(payload.amended_proposal_text), 1500)]
+        chunks = [
+            payload.amended_proposal_text[i : i + 1500]
+            for i in range(0, len(payload.amended_proposal_text), 1500)
+        ]
         for chunk in chunks:
             insight_record = DocumentInsightModel(
                 version_id=new_version.id,
                 project_id=payload.project_id,
-                chunk_content=chunk
+                chunk_content=chunk,
             )
             db.add(insight_record)
 
@@ -175,7 +192,7 @@ async def amend_project_version(payload: ProjectAmendmentRequest, db: AsyncSessi
             "status": "version_branched",
             "project_id": payload.project_id,
             "version_tag": payload.version_tag,
-            "detail": "New architectural revision branch isolated and embedded into vector context."
+            "detail": "New architectural revision branch isolated and embedded into vector context.",
         }
     except Exception as e:
         await db.rollback()
