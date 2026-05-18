@@ -20,3 +20,7 @@ class DocumentChunkModel(Base):
 
     # Inverse relationship mapping back to the parent project
     project = relationship("ProjectModel", back_populates="chunks")
+
+    @property
+    def chunk_content(self) -> str:
+        return self.content
