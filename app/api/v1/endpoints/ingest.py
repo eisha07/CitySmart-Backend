@@ -10,7 +10,7 @@ from app.models.database import ProjectModel, ProjectVersionModel, DocumentInsig
 from app.schemas.project import ProjectResponse
 from app.schemas.simulation import ProjectAmendmentRequest
 from app.services import vertex_service, gcs_service, pubsub_service
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+from vertexai.generative_models import GenerativeModel
 
 router = APIRouter(prefix="/projects", tags=["Urban Ingestion Engine"])
 
@@ -51,11 +51,11 @@ async def ingest_unstructured_urban_document(
         model = GenerativeModel("gemini-1.5-flash")
         response = await model.generate_content_async(
             extraction_prompt,
-            generation_config=GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=ExtractedProjectSchema,
-                temperature=0.1
-            ),
+            generation_config={
+                "response_mime_type": "application/json",
+                "response_schema": ExtractedProjectSchema,
+                "temperature": 0.1
+            }
         )
         
         # Parse the structured string safely back into native execution logic
