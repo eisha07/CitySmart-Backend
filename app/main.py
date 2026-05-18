@@ -1,25 +1,44 @@
+import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
 from app.api.v1 import v1_router
+from app.services.pubsub_worker import pubsub_worker
 
+# Define the server lifespan context controller to manage asynchronous hardware hooks cleanly
+@asynccontextmanager
+async def app_lifespan_handler(app: FastAPI):
+    # --- Startup Event Sequence ---
+    print("✨ Core Server Initialization Sequence Booting up...")
+    
+    # Securely set GCP application environment key references
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "temp_sa_key.json"
+    
+    # Fire up our non-blocking Pub/Sub worker queue streaming listener
+    pubsub_stream = pubsub_worker.start_listening()
+    
+    yield
+    
+    # --- Shutdown Event Sequence ---
+    print("🛑 Server Shutdown Triggered. Closing background network streaming channels...")
+    pubsub_stream.cancel()
+    print("📴 Background workers spun down cleanly.")
+
+# Instantiate main app with integrated resource management lifespan
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title="CitySmart Core",
+    description="Headless Urban Simulation Multi-Agent Platform",
     version="1.0.0",
-    description="Headless Multi-Agent Urban Simulation Core Engine"
+    lifespan=app_lifespan_handler
 )
 
-# Mount loose CORS origins to allow clean integration with our React mapping dashboard
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+# Route registration tree
 app.include_router(v1_router, prefix="/api/v1")
 
 @app.get("/health", tags=["System Diagnostics"])
-async def health_check():
-    return {"status": "healthy", "project_id": settings.GCP_PROJECT_ID}
+async def system_health_ping():
+    return {
+        "status": "healthy",
+        "platform": "Google Cloud Architecture Stack",
+        "region": "asia-northeast3 (Seoul)",
+        "multi_agent_matrix": "online"
+    }
