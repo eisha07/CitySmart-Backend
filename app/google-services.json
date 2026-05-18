@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "52623793029",
+    "project_id": "citysmart-fd53f",
+    "storage_bucket": "citysmart-fd53f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:52623793029:android:c6356a4567586c2171c2ec",
+        "android_client_info": {
+          "package_name": "edu.skku.cs.citysmart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7JbJ9MoezJwwTGgR9sslXpeqUS9-Xr84"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
