@@ -22,15 +22,28 @@ class CitizenPersonaProfile(BaseModel):
     type: str
     system_instruction: str
 
+class CitizenPersona(BaseModel):
+    name: str
+    demographic_role: str
+    sentiment_score: int = Field(..., description="0 to 100 score of how much they favor the project")
+    system_instruction: str = Field(..., description="First-person prompt detailing their life, concerns, and stance for subsequent chat engagement")
+
 class SimulationStateResponse(BaseModel):
     project_id: str
-    status: str
-    scores: FeasibilityScores
-    summary_verdict: str
-    discovered_personas: List[CitizenPersonaProfile] = Field(..., description="The 10 dynamic citizen personas extracted by the LLM.")
-    live_debate_ticks: List[LiveTickerMessage]
-    blueprint_revisions: List[BlueprintRevision]
-    spatial_telemetry: Dict[str, Any]
+    personas: List[CitizenPersona]
+    social_feasibility_score: int
+    economic_viability_score: int
+    political_acceptance_score: int
+    arbitrator_verdict: str
+    
+    # Backward compatibility properties (optional/defaulted)
+    status: str = "completed"
+    scores: Optional[FeasibilityScores] = None
+    summary_verdict: Optional[str] = None
+    discovered_personas: Optional[List[CitizenPersonaProfile]] = None
+    live_debate_ticks: Optional[List[LiveTickerMessage]] = None
+    blueprint_revisions: Optional[List[BlueprintRevision]] = None
+    spatial_telemetry: Optional[Dict[str, Any]] = None
 
 class ChatInterrogationRequest(BaseModel):
     project_id: str = Field(..., description="The unique identifier of the target project domain.")

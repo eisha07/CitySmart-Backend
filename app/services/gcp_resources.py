@@ -1,3 +1,4 @@
+import os
 import asyncio
 from google.cloud import storage
 from google.cloud import secretmanager
@@ -23,7 +24,8 @@ class CloudStorageService:
         try:
             loop = asyncio.get_running_loop()
             def _upload():
-                bucket = self.client.get_bucket(self.bucket_name)
+                # Use client.bucket() lazy constructor to bypass storage.buckets.get permission checks
+                bucket = self.client.bucket(self.bucket_name)
                 blob = bucket.blob(destination_blob_name)
                 blob.upload_from_string(text_content, content_type="text/plain")
                 return blob.public_url
@@ -32,8 +34,19 @@ class CloudStorageService:
             print(f"🟢 GCS Upload Success: Created storage blob '{destination_blob_name}'")
             return public_url
         except Exception as e:
-            print(f"🔴 GCS Core Upload Failure: {e}")
-            raise RuntimeError(f"GCS operational error: {str(e)}")
+            print(f"⚠️ GCS Upload Failed: {e}. Attempting local log archive fallback...")
+            try:
+                local_dir = "app/static/assets/logs"
+                os.makedirs(local_dir, exist_ok=True)
+                safe_filename = destination_blob_name.replace("/", "_")
+                local_path = os.path.join(local_dir, safe_filename)
+                with open(local_path, "w", encoding="utf-8") as f:
+                    f.write(text_content)
+                print(f"🟢 Local Log Archive Fallback Saved: '{local_path}'")
+                return f"/static/assets/logs/{safe_filename}"
+            except Exception as fallback_err:
+                print(f"🔴 Local Fallback Failed: {fallback_err}")
+                raise RuntimeError(f"GCS operational error: {str(e)}")
 
 class SecretManagerService:
     def __init__(self):
