@@ -8,3 +8,5 @@ google-cloud-secret-manager==2.18.1
 asyncpg==0.29.0
 sqlalchemy[asyncio]==2.0.28
 psycopg2-binary==2.9.9
+pgvector==0.2.5
+google-cloud-aiplatform==1.44.0
