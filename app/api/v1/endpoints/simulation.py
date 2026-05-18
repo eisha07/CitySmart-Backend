@@ -3,9 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
 from app.models.database import ProjectModel, DocumentInsightModel
-from app.schemas.simulation import SimulationStateResponse, FeasibilityScores, LiveTickerMessage, BlueprintRevision, CitizenPersonaProfile, ChatInterrogationRequest
+from app.schemas.simulation import (
+    SimulationStateResponse,
+    FeasibilityScores,
+    LiveTickerMessage,
+    BlueprintRevision,
+    CitizenPersonaProfile,
+    ChatInterrogationRequest,
+    ConceptRenderRequest,
+    ConceptRenderResponse
+)
 from app.services.agent_engine import simulation_engine
 import random
+import os
 
 router = APIRouter(prefix="/simulation", tags=["Agent Simulation Core"])
 
@@ -85,3 +95,25 @@ async def chat_with_citizen_persona(payload: ChatInterrogationRequest):
         return {"reply": reply}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Active Chat Collapse: {str(e)}")
+
+@router.post("/render-concept", response_model=ConceptRenderResponse, status_code=200)
+async def generate_blueprint_render(payload: ConceptRenderRequest):
+    try:
+        # Create staging assets path directory if it does not exist
+        os.makedirs("app/static/assets/renders", exist_ok=True)
+
+        # Execute our multimodal rendering engine pass
+        render_data = await simulation_engine.render_architectural_concept(
+            element=payload.design_element_description,
+            context=payload.environmental_context
+        )
+
+        return ConceptRenderResponse(
+            project_id=payload.project_id,
+            version_tag=payload.version_tag,
+            element_rendered=payload.design_element_description,
+            generated_image_url=render_data["url"],
+            revised_prompt_used=render_data["prompt"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Multimodal Rendering Engine Exception: {str(e)}")

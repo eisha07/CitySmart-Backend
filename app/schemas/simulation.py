@@ -42,3 +42,16 @@ class ProjectAmendmentRequest(BaseModel):
     project_id: str
     version_tag: str  # e.g., "v2-amended"
     amended_proposal_text: str
+
+class ConceptRenderRequest(BaseModel):
+    project_id: str
+    version_tag: str
+    design_element_description: str
+    environmental_context: Optional[str] = Field(default="Daytime, clean modern architecture, South Asian metropolitan context")
+
+class ConceptRenderResponse(BaseModel):
+    project_id: str
+    version_tag: str
+    element_rendered: str
+    generated_image_url: str
+    revised_prompt_used: str
