@@ -10,7 +10,8 @@ from app.models.database import ProjectModel, ProjectVersionModel, DocumentInsig
 from app.schemas.project import ProjectResponse
 from app.schemas.simulation import ProjectAmendmentRequest
 from app.services import vertex_service, gcs_service, pubsub_service
-from vertexai.generative_models import GenerativeModel
+from google.genai import types
+from app.services.agent_engine import client
 
 router = APIRouter(prefix="/projects", tags=["Urban Ingestion Engine"])
 
@@ -38,7 +39,7 @@ async def ingest_unstructured_urban_document(
     payload: UnstructuredIngestRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Accepts unstructured user prompts and extracts the mandatory system schema fields using Gemini Flash."""
+    """Accepts unstructured user prompts and extracts mandatory schema fields using explicit types.GenerateContentConfig."""
     try:
         extraction_prompt = f"""
         Analyze the following raw urban planning proposal text. Extract or generate a valid system 'project_id' (lowercase, hyphenated, short slug), a clear descriptive 'title', and clean up the 'baseline_proposal_text'.
@@ -47,15 +48,15 @@ async def ingest_unstructured_urban_document(
         {payload.user_prompt}
         """
         
-        # Invoke Gemini 1.5 Flash forcing structured JSON mapping outputs matching our schema
-        model = GenerativeModel("gemini-1.5-flash")
-        response = await model.generate_content_async(
-            extraction_prompt,
-            generation_config={
-                "response_mime_type": "application/json",
-                "response_schema": ExtractedProjectSchema,
-                "temperature": 0.1
-            }
+        # Invoke Gemini 1.5 Flash using the strictly required GenerateContentConfig type wrapper
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=extraction_prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ExtractedProjectSchema,
+                temperature=0.1
+            )
         )
         
         # Parse the structured string safely back into native execution logic

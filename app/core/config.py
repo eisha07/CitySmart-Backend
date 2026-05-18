@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     GCP_PROJECT_ID: str = "sinuous-branch-411610"
     GCP_REGION: str = "asia-northeast3"
     DATABASE_URL: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
     
     class Config:
         env_file = ".env"
