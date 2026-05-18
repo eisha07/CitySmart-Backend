@@ -13,13 +13,25 @@ SUBSCRIPTION_NAME = "simulation-trigger-sub"
 
 class CloudPubSubWorkerLoop:
     def __init__(self):
-        self.subscriber = pubsub_v1.SubscriberClient()
-        self.subscription_path = self.subscriber.subscription_path(GCP_PROJECT_ID, SUBSCRIPTION_NAME)
+        self._subscriber = None
+        self._subscription_path = None
         
         # Instantiate an isolated database engine to prevent thread leakage during async background processing
         DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/citysmart")
         self.engine = create_async_engine(DATABASE_URL, echo=False)
         self.session_factory = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
+
+    @property
+    def subscriber(self):
+        if self._subscriber is None:
+            self._subscriber = pubsub_v1.SubscriberClient()
+        return self._subscriber
+
+    @property
+    def subscription_path(self):
+        if self._subscription_path is None:
+            self._subscription_path = self.subscriber.subscription_path(GCP_PROJECT_ID, SUBSCRIPTION_NAME)
+        return self._subscription_path
 
     async def process_background_simulation_event(self, project_id: str, context_chunks: list[str]):
         """Runs the complete Phase 5 multi-agent simulation asynchronously inside the background worker thread."""

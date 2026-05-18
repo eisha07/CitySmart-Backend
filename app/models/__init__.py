@@ -1,6 +1,4 @@
 from app.core.database import Base
-from app.models.project import ProjectModel
-from app.models.document_chunk import DocumentChunkModel
-from app.models.database import SimulationResultModel
+from app.models.database import ProjectModel, ProjectVersionModel, DocumentInsightModel, SimulationResultModel
 
-__all__ = ["Base", "ProjectModel", "DocumentChunkModel", "SimulationResultModel"]
+__all__ = ["Base", "ProjectModel", "ProjectVersionModel", "DocumentInsightModel", "SimulationResultModel"]

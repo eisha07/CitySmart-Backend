@@ -37,3 +37,8 @@ class ChatInterrogationRequest(BaseModel):
     persona_system_instruction: str
     user_message: str
     chat_history: List[Dict[str, str]] = Field(default=[], description="List of maps following [{'role': 'user'|'model', 'content': '...'}]")
+
+class ProjectAmendmentRequest(BaseModel):
+    project_id: str
+    version_tag: str  # e.g., "v2-amended"
+    amended_proposal_text: str
