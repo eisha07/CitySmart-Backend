@@ -79,4 +79,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.activity.compose)
+
+    // Google Maps Compose
+    implementation("com.google.maps.android:maps-compose:4.3.3")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
 }
