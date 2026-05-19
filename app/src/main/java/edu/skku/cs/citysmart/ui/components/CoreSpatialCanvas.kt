@@ -51,7 +51,7 @@ fun CoreSpatialCanvas(
         MapProperties(
             mapType = MapType.NORMAL,
             isBuildingEnabled = true,
-            isTrafficEnabled = false
+            isTrafficEnabled = true // Access real-time traffic layer via Google Maps API
         )
     }
 
@@ -89,7 +89,7 @@ fun CoreSpatialCanvas(
                 // Placeholder for Preview mode
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        "MAP ENGINE ACTIVE\n(Live tiles only on Device)",
+                        "MAP ENGINE ACTIVE (TRAFFIC ENABLED)\n(Live tiles only on Device)",
                         color = Color.DarkGray,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
@@ -112,9 +112,11 @@ fun CoreSpatialCanvas(
                     telemetry.features.forEach { feature ->
                         val coordinates = feature.geometry.coordinates.map { LatLng(it[1], it[0]) }
                         
-                        val pathColor = when (feature.properties.agentProfile) {
-                            "female_commuter" -> Color(0xFFE91E63) 
-                            "qingqi_driver" -> Color(0xFF00E5FF)   
+                        // Logic to respond to traffic/friction levels
+                        val pathColor = when {
+                            feature.properties.frictionIntensity > 1.3f -> Color(0xFFFF1744) // Traffic response
+                            feature.properties.agentProfile == "female_commuter" -> Color(0xFFE91E63) 
+                            feature.properties.agentProfile == "qingqi_driver" -> Color(0xFF00E5FF)   
                             else -> Color.White
                         }
 
@@ -145,7 +147,11 @@ fun CoreSpatialCanvas(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    device = "id:pixel_5"
+)
 @Composable
 fun CoreSpatialCanvasPreview() {
     val sampleTelemetry = SpatialTelemetryCollection(
@@ -160,7 +166,7 @@ fun CoreSpatialCanvasPreview() {
                 ),
                 properties = TelemetryProperties(
                     agentProfile = "female_commuter",
-                    frictionIntensity = 1.5f
+                    frictionIntensity = 1.6f // Trigger traffic response
                 )
             ),
             GeoJsonFeature(
@@ -178,7 +184,11 @@ fun CoreSpatialCanvasPreview() {
             )
         )
     )
+
     CitySmartTheme {
-        CoreSpatialCanvas(telemetry = sampleTelemetry)
+        CoreSpatialCanvas(
+            telemetry = sampleTelemetry,
+            modifier = Modifier.padding(16.dp)
+        )
     }
 }

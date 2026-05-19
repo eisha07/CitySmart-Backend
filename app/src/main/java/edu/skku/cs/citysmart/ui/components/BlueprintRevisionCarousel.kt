@@ -142,7 +142,13 @@ fun BlueprintCard(revision: BlueprintRevision) {
 /**
  * Steps 39, 40, & 50: The Visual Preview Test!
  */
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+
+@Preview(
+    showBackground = true,
+    backgroundColor = 0xFF000000,
+    showSystemUi = true,
+    device = "id:pixel_5"
+)
 @Composable
 fun PreviewBlueprintCarousel() {
     val mockRevisions = listOf(
