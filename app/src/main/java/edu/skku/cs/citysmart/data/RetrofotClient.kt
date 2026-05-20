@@ -7,7 +7,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    // 🚀 Updated to the active server IP and port
+    // 🚀 Physical device LAN IP — host machine's WiFi address on the local network
+    // NOTE: 10.0.2.2 only works in the Android Emulator. For a real phone, use the host's LAN IP.
     private const val BASE_URL = "http://172.30.1.5:8000/"
 
     val instance: DigitalTwinApiService by lazy {

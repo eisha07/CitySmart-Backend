@@ -10,13 +10,14 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    // Default fallback set to the active server IP
+    // 🚨 Physical device LAN IP — host machine's WiFi address on the local network
+    // NOTE: 10.0.2.2 only works in the Android Emulator. For a real phone, use the host's LAN IP.
     private var currentBaseUrl = "http://172.30.1.5:8000/"
 
     private var retrofit: Retrofit? = null
 
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS) // Crucial for long AI generation times
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
@@ -43,7 +44,7 @@ object NetworkClient {
         if (!formattedIp.endsWith("/")) {
             formattedIp = "$formattedIp/"
         }
-        
+
         currentBaseUrl = formattedIp
         buildRetrofit() // Re-initialize Retrofit with the new address
     }
