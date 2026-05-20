@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.models.database import ProjectModel, ProjectVersionModel, DocumentInsightModel
 from app.schemas.simulation import (
+    GeminiSimulationSchema,
     SimulationStateResponse,
     CitizenPersona,
     FeasibilityScores,
@@ -115,14 +116,17 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
         3. Act as the 'Urban Arbitrator Agent' to synthesize a comprehensive policy verdict in 'arbitrator_verdict' detailing layout concessions, pedestrian integration rules, and structural trade-offs.
         """
 
-        # Invoke Gemini 2.5 Flash with strictly typed Pydantic response_schema
-        # We are using gemini-2.5-flash as it is fully active, quota-approved, and incredibly fast!
+        # Invoke Gemini 2.5 Flash with the lean GeminiSimulationSchema.
+        # We CANNOT pass SimulationStateResponse here because it contains
+        # Dict[str, Any] fields (spatial_telemetry) that Pydantic serialises
+        # with `additionalProperties`, which the Gemini API rejects (INVALID_ARGUMENT).
+        # We enrich the parsed response with those fields manually below.
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=simulation_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=SimulationStateResponse,
+                response_schema=GeminiSimulationSchema,
                 temperature=0.7,
             ),
         )

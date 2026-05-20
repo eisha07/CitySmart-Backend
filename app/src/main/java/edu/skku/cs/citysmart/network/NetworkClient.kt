@@ -4,9 +4,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object NetworkClient {
-    // 🚨 IMPORTANT: Replace the IP address below with the actual local Wi-Fi IP
-    // of the laptop your partner is running the FastAPI server on!
-    private const val BASE_URL = "http://172.30.1.35:8080/"
+    // 🚨 Physical device LAN IP — host machine's WiFi address on the local network
+    // NOTE: 10.0.2.2 only works in the Android Emulator. For a real phone, use the host's LAN IP.
+    private const val BASE_URL = "http://172.30.1.5:8000/"
+
 
     val api: CitySmartApi by lazy {
         Retrofit.Builder()

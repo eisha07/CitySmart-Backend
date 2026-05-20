@@ -2,6 +2,13 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
 
+# ── Gemini-safe schema ──────────────────────────────────────────────────────
+# Contains ONLY primitive / fully-typed fields.
+# Dict[str, Any] fields are EXCLUDED because Pydantic emits `additionalProperties`
+# in their JSON schema, which the Gemini API rejects with INVALID_ARGUMENT.
+# We enrich the response with those fields manually in the endpoint after parsing.
+
+
 class LiveTickerMessage(BaseModel):
     timestamp: str
     agent_profile: str
@@ -37,6 +44,17 @@ class CitizenPersona(BaseModel):
         ...,
         description="First-person prompt detailing their life, concerns, and stance for subsequent chat engagement",
     )
+
+
+class GeminiSimulationSchema(BaseModel):
+    """Lean schema passed to Gemini response_schema. No Dict/Any fields allowed."""
+
+    project_id: str
+    personas: List[CitizenPersona]
+    social_feasibility_score: int
+    economic_viability_score: int
+    political_acceptance_score: int
+    arbitrator_verdict: str
 
 
 class SimulationStateResponse(BaseModel):

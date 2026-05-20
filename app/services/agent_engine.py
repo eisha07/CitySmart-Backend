@@ -1,19 +1,41 @@
 import json
+import os
 from vertexai.generative_models import GenerativeModel, Content, Part
 from vertexai.preview.vision_models import ImageGenerationModel
+from google import genai
+from google.genai import types
+from app.core.config import settings
+
+
+class LazyGenAIClient:
+    def __init__(self):
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
+            if api_key:
+                self._client = genai.Client(api_key=api_key)
+            else:
+                self._client = genai.Client(
+                    vertexai=True,
+                    project=settings.GCP_PROJECT_ID,
+                    location=settings.GCP_REGION,
+                )
+        return self._client
+
+    @property
+    def models(self):
+        return self.client.models
+
+
+client = LazyGenAIClient()
 
 
 class UrbanAgentSimulationEngine:
     def __init__(self):
-        # Initialize as None for lazy loading to prevent GoogleAuthError during module imports
-        self._model = None
         self._imagen_model = None
-
-    @property
-    def model(self):
-        if self._model is None:
-            self._model = GenerativeModel("gemini-1.5-pro")
-        return self._model
 
     @property
     def imagen_model(self):
@@ -38,8 +60,15 @@ class UrbanAgentSimulationEngine:
         
         OUTPUT FORMAT: You MUST return a valid, clean JSON list containing exactly 10 objects with the keys "name", "type", and "system_instruction". Do not add markdown code block backticks, explanations, or trailing commentary.
         """
-        response = await self.model.generate_content_async(discovery_prompt)
-        raw_text = response.text.strip().replace("```json", "").replace("```", "")
+        response = await client.client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=discovery_prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+            ),
+        )
+        raw_text = response.text.strip()
         stakeholder_matrix = json.loads(raw_text)
         return stakeholder_matrix[:10]
 
@@ -53,24 +82,52 @@ class UrbanAgentSimulationEngine:
         {combined_context}
         Identify exactly 2 critical personal vulnerabilities, structural dangers, or operational constraints this layout forces onto your day-to-day survival.
         """
-        agent_session = GenerativeModel(
-            "gemini-1.5-pro", system_instruction=system_instruction
+        response = await client.client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.7,
+            ),
         )
-        response = await agent_session.generate_content_async(user_prompt)
         return response.text
 
-    async def run_consensus_negotiation(self, critiques_list: list[dict]) -> dict:
-        """Arbitrates between the comprehensive multi-persona array to synthesize scores and generate optimal design fixes."""
+    async def simulate_agent_critique(
+        self, system_instruction: str, context_chunks: list[str]
+    ) -> str:
+        """Alias for simulate_dynamic_critique to support pubsub worker."""
+        return await self.simulate_dynamic_critique(system_instruction, context_chunks)
+
+    async def run_consensus_negotiation(self, *args, **kwargs) -> dict:
+        """
+        Arbitrates between the comprehensive multi-persona array to synthesize scores and generate optimal design fixes.
+        Supports both a single list of dicts, or multiple critique strings/dicts passed as arguments.
+        """
+        critiques_list = []
+        if args:
+            if len(args) == 1 and isinstance(args[0], list):
+                critiques_list = args[0]
+            else:
+                for idx, arg in enumerate(args):
+                    if isinstance(arg, dict):
+                        critiques_list.append(arg)
+                    elif isinstance(arg, str):
+                        critiques_list.append({
+                            "name": f"Agent {idx + 1}",
+                            "type": "Demographic",
+                            "text": arg
+                        })
+
         formatted_critiques = "\n\n".join(
             [
-                f"PROFILE: {c['name']} ({c['type']})\nCRITIQUE: {c['text']}"
+                f"PROFILE: {c.get('name', 'Agent')} ({c.get('type', 'Demographic')})\nCRITIQUE: {c.get('text', '') or c.get('critique', '')}"
                 for c in critiques_list
             ]
         )
 
         arbitration_prompt = f"""
         You are an elite urban planning arbitrator specializing in developing civic infrastructure stability.
-        Review this 10-persona community feedback matrix representing real local populations:
+        Review this community feedback matrix representing real local populations:
         
         {formatted_critiques}
         
@@ -92,32 +149,44 @@ class UrbanAgentSimulationEngine:
             ]
         }}
         """
-        response = await self.model.generate_content_async(arbitration_prompt)
-        raw_text = response.text.strip().replace("```json", "").replace("```", "")
-        return json.loads(raw_text)
+        response = await client.client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=arbitration_prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.7,
+            ),
+        )
+        return json.loads(response.text.strip())
 
     async def interrogate_persona(
         self, system_instruction: str, history: list[dict], user_message: str
     ) -> str:
         """Maintains an active, stateful dialogue inside a specific citizen's semantic roleplay boundary."""
-        # 1. Instantiate the model with the exact system instruction persona block
-        chat_agent = GenerativeModel(
-            "gemini-1.5-pro", system_instruction=system_instruction
-        )
-
-        # 2. Reconstruct the chat history parameters safely using Vertex AI Content objects
-        formatted_history = []
+        contents = []
         for msg in history:
             role = "user" if msg.get("role") == "user" else "model"
-            formatted_history.append(
-                Content(role=role, parts=[Part.from_text(text=msg.get("content", ""))])
+            contents.append(
+                types.Content(
+                    role=role,
+                    parts=[types.Part.from_text(text=msg.get("content", ""))]
+                )
             )
+        contents.append(
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=user_message)]
+            )
+        )
 
-        # 3. Spin up an active chat session seeded with the historical logs
-        chat_session = chat_agent.start_chat(history=formatted_history)
-
-        # 4. Stream transmission asynchronously out to the cloud broker
-        response = await chat_session.send_message_async(user_message)
+        response = await client.client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.7,
+            ),
+        )
         return response.text
 
     async def render_architectural_concept(self, element: str, context: str) -> dict:
@@ -131,7 +200,10 @@ class UrbanAgentSimulationEngine:
         The output prompt must focus on architectural precision, urban layout clarity, street infrastructure, safety features, and realistic lighting. Avoid buzzwords like 'photorealistic' or 'stunning'.
         OUTPUT FORMAT: Return only the plain optimized prompt string. No markdown, no quotes.
         """
-        prompt_response = await self.model.generate_content_async(refinement_prompt)
+        prompt_response = await client.client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=refinement_prompt,
+        )
         optimized_prompt = prompt_response.text.strip()
 
         # 2. Invoke the Imagen 3 model to generate the concept image
@@ -161,35 +233,3 @@ class UrbanAgentSimulationEngine:
 
 # Re-instantiate the engine cleanly
 simulation_engine = UrbanAgentSimulationEngine()
-
-# Lazy GenAI Client wrapper to support the google-genai SDK at request time
-from google import genai
-from app.core.config import settings
-
-
-class LazyGenAIClient:
-    def __init__(self):
-        self._client = None
-
-    @property
-    def client(self):
-        if self._client is None:
-            import os
-
-            api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-            if api_key:
-                self._client = genai.Client(api_key=api_key)
-            else:
-                self._client = genai.Client(
-                    vertexai=True,
-                    project=settings.GCP_PROJECT_ID,
-                    location=settings.GCP_REGION,
-                )
-        return self._client
-
-    @property
-    def models(self):
-        return self.client.models
-
-
-client = LazyGenAIClient()
