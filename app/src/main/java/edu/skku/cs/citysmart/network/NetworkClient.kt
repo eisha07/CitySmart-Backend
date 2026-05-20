@@ -1,6 +1,6 @@
 /**
- * UPDATED: The default backend IP address is set to 172.30.1.5:8000.
- * This ensures that all network requests generated via this client point to the active simulation server.
+ * UPDATED: The default backend is now pointed to the deployed Google Cloud Run instance.
+ * This ensures that network requests point to the production-ready simulation server.
  */
 package edu.skku.cs.citysmart.network
 
@@ -10,9 +10,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    // 🚨 Physical device LAN IP — host machine's WiFi address on the local network
-    // NOTE: 10.0.2.2 only works in the Android Emulator. For a real phone, use the host's LAN IP.
-    private var currentBaseUrl = "http://172.30.1.5:8000/"
+    private const val BASE_URL = "https://citysmart-backend-147271219875.europe-west1.run.app/"
+    private var currentBaseUrl = BASE_URL
 
     private var retrofit: Retrofit? = null
 
@@ -31,8 +30,7 @@ object NetworkClient {
         }
 
     /**
-     * Dynamically updates the server address at runtime.
-     * Expects format like "172.30.1.5:8000"
+     * Dynamically updates the server address at runtime if needed (e.g., local testing).
      */
     fun updateBaseUrl(newIp: String) {
         var formattedIp = newIp.trim()
@@ -46,7 +44,7 @@ object NetworkClient {
         }
 
         currentBaseUrl = formattedIp
-        buildRetrofit() // Re-initialize Retrofit with the new address
+        buildRetrofit()
     }
 
     private fun buildRetrofit() {

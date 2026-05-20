@@ -2,6 +2,27 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
 
+# ── Persona Metadata ────────────────────────────────────────────────────────
+# Rich profile object returned alongside each active agent so the Jetpack
+# Compose frontend can populate the (ⓘ) icon popup modal.
+class PersonaMetadata(BaseModel):
+    name: str = Field(..., description="Display name of the agent persona.")
+    icon_tag: str = Field(
+        default="👤",
+        description="Emoji or short icon slug rendered in the agent list card.",
+    )
+    short_description: str = Field(
+        ..., description="One-line subtitle shown beneath the persona name."
+    )
+    characteristics: List[str] = Field(
+        ...,
+        description=(
+            "Ordered list of core traits, priorities, and behavioral tendencies "
+            "used to populate the info-modal bullet view."
+        ),
+    )
+
+
 # ── Gemini-safe schema ──────────────────────────────────────────────────────
 # Contains ONLY primitive / fully-typed fields.
 # Dict[str, Any] fields are EXCLUDED because Pydantic emits `additionalProperties`
@@ -47,14 +68,29 @@ class CitizenPersona(BaseModel):
 
 
 class GeminiSimulationSchema(BaseModel):
-    """Lean schema passed to Gemini response_schema. No Dict/Any fields allowed."""
+    """
+    Lean schema passed to Gemini response_schema. No Dict/Any fields allowed.
+
+    IMPORTANT: List[str] is safe here (serialises as a plain JSON array).
+    Dict[str, Any] fields are EXCLUDED — they emit `additionalProperties`
+    which the Gemini API rejects with INVALID_ARGUMENT.
+    """
 
     project_id: str
     personas: List[CitizenPersona]
     social_feasibility_score: int
     economic_viability_score: int
     political_acceptance_score: int
+    # Human-readable headline kept for backward compat / logging
     arbitrator_verdict: str
+    # NEW: structured mediator output — each element is one actionable bullet
+    summary_points: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Ordered array of distinct, actionable policy synthesis points produced "
+            "by the Mediator Agent. Maps directly to the Compose bulleted list view."
+        ),
+    )
 
 
 class SimulationStateResponse(BaseModel):
@@ -64,6 +100,20 @@ class SimulationStateResponse(BaseModel):
     economic_viability_score: int
     political_acceptance_score: int
     arbitrator_verdict: str
+
+    # ── Mediator structured output (Prompt 1) ────────────────────────────
+    # Each string is a single bullet point for the Compose LazyColumn view.
+    summary_points: List[str] = Field(
+        default_factory=list,
+        description="Distinct, actionable synthesis points from the Mediator Agent.",
+    )
+
+    # ── Rich persona metadata (Prompt 2) ─────────────────────────────────
+    # Populated from the static PersonaRegistry; powers the (ⓘ) modal.
+    active_agents: Optional[List[PersonaMetadata]] = Field(
+        default=None,
+        description="Full characteristic profiles for each active persona agent.",
+    )
 
     # Backward compatibility properties (optional/defaulted)
     status: str = "completed"
