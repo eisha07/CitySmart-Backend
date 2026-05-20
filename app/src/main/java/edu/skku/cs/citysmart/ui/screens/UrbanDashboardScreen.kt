@@ -2,6 +2,8 @@ package edu.skku.cs.citysmart.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Construction
@@ -54,22 +56,40 @@ fun MainNavigationShell(
             startDestination = NavScreen.Map.route,
             modifier = Modifier.padding(paddingValues)
         ) {
-            // TAB 1: Geographic Map
+            // TAB 1: Geographic Map (Updated to be Full Screen)
             composable(NavScreen.Map.route) {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     CoreSpatialCanvas(telemetry = telemetry)
                 }
             }
 
-            // TAB 2: Analytics & Gauges
+            // TAB 2: Analytics & Gauges - Refactored for Full Screen Scrollable
             composable(NavScreen.Analytics.route) {
+                val scrollState = rememberScrollState()
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(
+                        text = "EXECUTIVE SIMULATION ANALYTICS",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+
                     ArbitratorVerdictTerminal(verdictText = state.summaryVerdict)
+                    
                     Spacer(modifier = Modifier.height(24.dp))
+                    
                     TriPillarGaugePanel(scores = state.scores)
+                    
+                    Spacer(modifier = Modifier.height(32.dp))
+                    
+                    // Add some bottom spacing for better scrolling experience
+                    Spacer(modifier = Modifier.height(48.dp))
                 }
             }
 

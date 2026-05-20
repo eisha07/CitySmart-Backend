@@ -21,6 +21,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import edu.skku.cs.citysmart.domain.LiveDebateTick
+import java.util.Locale
 
 /**
  * Step 31 & 32: The Main Scrollable Debate Container
@@ -98,7 +99,7 @@ fun AishaStreamComponent(tick: LiveDebateTick) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = tick.agentName.uppercase(),
+                    text = (tick.agentName ?: "").uppercase(Locale.ROOT),
                     color = Color(0xFFE91E63),
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
@@ -108,7 +109,7 @@ fun AishaStreamComponent(tick: LiveDebateTick) {
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = tick.messageText,
+                text = tick.messageText ?: "",
                 color = Color.White,
                 fontSize = 13.sp,
                 lineHeight = 18.sp
@@ -142,8 +143,9 @@ fun TariqStreamComponent(tick: LiveDebateTick) {
             ) {
                 AlertChip(level = tick.alertLevel)
                 Spacer(modifier = Modifier.width(8.dp))
+                val agentDisplayName = (tick.agentName ?: "").uppercase(Locale.ROOT)
                 Text(
-                    text = tick.agentName.uppercase(),
+                    text = agentDisplayName,
                     color = Color(0xFF00B0FF),
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp
@@ -158,7 +160,7 @@ fun TariqStreamComponent(tick: LiveDebateTick) {
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = tick.messageText,
+                text = tick.messageText ?: "",
                 color = Color.White,
                 fontSize = 13.sp,
                 lineHeight = 18.sp
@@ -171,8 +173,9 @@ fun TariqStreamComponent(tick: LiveDebateTick) {
  * Tiny utility component for the neon CRITICAL/WARNING tags
  */
 @Composable
-fun AlertChip(level: String) {
-    val (bgColor, textColor) = when (level.uppercase()) {
+fun AlertChip(level: String?) {
+    val nonNullLevel = level ?: "INFO"
+    val (bgColor, textColor) = when (nonNullLevel.uppercase(Locale.ROOT)) {
         "CRITICAL" -> Color(0xFFFF1744).copy(alpha = 0.2f) to Color(0xFFFF1744)
         "WARNING" -> Color(0xFFFF9100).copy(alpha = 0.2f) to Color(0xFFFF9100)
         else -> Color(0xFF00E676).copy(alpha = 0.2f) to Color(0xFF00E676)
@@ -184,7 +187,7 @@ fun AlertChip(level: String) {
             .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
         Text(
-            text = level,
+            text = nonNullLevel,
             color = textColor,
             fontSize = 8.sp,
             fontWeight = FontWeight.ExtraBold,

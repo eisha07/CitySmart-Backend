@@ -12,7 +12,8 @@ class UrbanAgentSimulationEngine:
     @property
     def model(self):
         if self._model is None:
-            self._model = GenerativeModel("gemini-1.5-pro")
+            # UPDATED: Switched from gemini-1.5-pro to gemini-1.5-flash to improve quota availability and reduce latency.
+            self._model = GenerativeModel("gemini-1.5-flash")
         return self._model
 
     @property
@@ -32,7 +33,7 @@ class UrbanAgentSimulationEngine:
         "{document_context[:5000]}"
         
         Identify exactly 10 highly differentiated citizen personas who will experience direct impacts, utility shifts, or daily friction due to this design layout.
-        You MUST search across diverse demographics: include formal commuters, informal transit operators (qingqi/rickshaw drivers), street vendors (khokha owners), elderly or disabled residents, night-shift workers, women traveling alone, schoolchildren, local storefront merchants, sanitation crews, and nearby residential property owners.
+        You MUST search across diverse demographics: include formal commuters, informal transit operators (qingqi/rickshaw drivers), street vendors (khokha owners), elderly or disabled residents, night-shift workers, women traveling alone, schoolchildren, local sanitation crews, and nearby residential property owners.
         
         For each of these 10 distinct profiles, construct a comprehensive, deep first-person system instruction configuration that forces an LLM to roleplay as them flawlessly, maintaining their personal constraints, vocabulary, economic realities, and daily anxieties.
         
@@ -53,8 +54,9 @@ class UrbanAgentSimulationEngine:
         {combined_context}
         Identify exactly 2 critical personal vulnerabilities, structural dangers, or operational constraints this layout forces onto your day-to-day survival.
         """
+        # UPDATED: Switched from gemini-1.5-pro to gemini-1.5-flash
         agent_session = GenerativeModel(
-            "gemini-1.5-pro", system_instruction=system_instruction
+            "gemini-1.5-flash", system_instruction=system_instruction
         )
         response = await agent_session.generate_content_async(user_prompt)
         return response.text
@@ -100,9 +102,9 @@ class UrbanAgentSimulationEngine:
         self, system_instruction: str, history: list[dict], user_message: str
     ) -> str:
         """Maintains an active, stateful dialogue inside a specific citizen's semantic roleplay boundary."""
-        # 1. Instantiate the model with the exact system instruction persona block
+        # UPDATED: Switched from gemini-1.5-pro to gemini-1.5-flash
         chat_agent = GenerativeModel(
-            "gemini-1.5-pro", system_instruction=system_instruction
+            "gemini-1.5-flash", system_instruction=system_instruction
         )
 
         # 2. Reconstruct the chat history parameters safely using Vertex AI Content objects
@@ -131,8 +133,8 @@ class UrbanAgentSimulationEngine:
         The output prompt must focus on architectural precision, urban layout clarity, street infrastructure, safety features, and realistic lighting. Avoid buzzwords like 'photorealistic' or 'stunning'.
         OUTPUT FORMAT: Return only the plain optimized prompt string. No markdown, no quotes.
         """
-        prompt_response = await self.model.generate_content_async(refinement_prompt)
-        optimized_prompt = prompt_response.text.strip()
+        response = await self.model.generate_content_async(refinement_prompt)
+        optimized_prompt = response.text.strip()
 
         # 2. Invoke the Imagen 3 model to generate the concept image
         result = self.imagen_model.generate_images(

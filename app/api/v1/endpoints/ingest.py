@@ -56,9 +56,9 @@ async def ingest_unstructured_urban_document(
         {payload.user_prompt}
         """
 
-        # Invoke Gemini 2.5 Flash using the strictly required GenerateContentConfig type wrapper
+        # UPDATED: Switched from gemini-2.5-flash to gemini-1.5-flash to resolve 429 Resource Exhausted errors.
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             contents=extraction_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -131,9 +131,18 @@ async def ingest_unstructured_urban_document(
     except Exception as e:
         await db.rollback()
         print(f"🔴 Fatal Ingestion Failover: {e}")
+
+        # Determine if this is a quota issue to provide a clearer 429 response
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+             raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI Quota Exhausted. Please switch to Proxy Data or wait for the limit to reset."
+            )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Automated Schema Extraction Layer Exception: {str(e)}",
+            detail=f"Automated Schema Extraction Layer Exception: {error_msg}",
         )
 
 
