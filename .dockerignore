@@ -1,0 +1,31 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+
+# Android / Gradle build artifacts
+.gradle/
+build/
+*.apk
+*.aab
+local.properties
+
+# IDE
+.idea/
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Secrets (inject via env vars or Cloud Secret Manager at runtime)
+*.json
+.env
+
+# Cloud SQL Proxy binary (not needed inside container — use Cloud Run sidecar or alloydb connector)
+cloud-sql-proxy
