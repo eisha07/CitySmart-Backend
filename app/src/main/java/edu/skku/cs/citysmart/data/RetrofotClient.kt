@@ -1,11 +1,14 @@
+/**
+ * UPDATED: BASE_URL changed to http://172.30.1.5:8000/ to point to the active simulation server.
+ */
 package edu.skku.cs.citysmart.data
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    // 🚀 STEP 18: Replace this with your actual Mac IP address (Keep the http:// and the :8080/)
-    private const val BASE_URL = "http://172.30.1.82:8080/"
+    // 🚀 Updated to the active server IP and port
+    private const val BASE_URL = "http://172.30.1.5:8000/"
 
     val instance: DigitalTwinApiService by lazy {
         val retrofit = Retrofit.Builder()
