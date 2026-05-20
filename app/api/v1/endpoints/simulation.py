@@ -11,12 +11,14 @@ from app.schemas.simulation import (
     LiveTickerMessage,
     BlueprintRevision,
     CitizenPersonaProfile,
+    PersonaMetadata,
     ChatInterrogationRequest,
     ChatInterrogationResponse,
     ConceptRenderRequest,
     ConceptRenderResponse,
 )
-from app.services.agent_engine import simulation_engine, client
+from app.services.agent_engine import simulation_engine, client, parse_summary_points
+from app.services.persona_registry import lookup_persona_metadata
 from google.genai import types
 import random
 import os
@@ -113,7 +115,12 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
            - 'social_feasibility_score'
            - 'economic_viability_score'
            - 'political_acceptance_score'
-        3. Act as the 'Urban Arbitrator Agent' to synthesize a comprehensive policy verdict in 'arbitrator_verdict' detailing layout concessions, pedestrian integration rules, and structural trade-offs.
+        3. Act as the 'Urban Mediator Agent'. Synthesize all persona viewpoints into a structured JSON output — NOT prose paragraphs.
+           - 'arbitrator_verdict': A single concise headline sentence that captures the most critical systemic finding.
+           - 'summary_points': A JSON array of exactly 5 to 7 distinct strings. Each string must be one standalone,
+             actionable policy insight or community trade-off. Do NOT write sentences that flow into each other.
+             Each point must be independently readable as a bullet item in a mobile UI list view.
+             Example format: ["Point about pedestrian safety.", "Point about rickshaw lane displacement.", ...]
         """
 
         # Invoke Gemini 2.5 Flash with the lean GeminiSimulationSchema.
@@ -133,7 +140,41 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
 
         data = json.loads(response.text.strip())
 
-        # 4. Inject backward-compatibility properties for dashboard view integrity
+        # ───────────────────────────────────────────────────────────────────────────────
+        # 4a. Extract summary_points (Prompt 1)
+        # Primary: use the structured list already embedded in the Gemini JSON response.
+        # Fallback: apply parse_summary_points() on the arbitrator_verdict string so a
+        # 500 error is never thrown even if Gemini degrades to prose output.
+        # ───────────────────────────────────────────────────────────────────────────────
+        raw_summary_points = data.get("summary_points", [])
+        if isinstance(raw_summary_points, list) and len(raw_summary_points) >= 2:
+            # LLM returned a valid array — clean whitespace only.
+            summary_points: list[str] = [
+                str(p).strip() for p in raw_summary_points if str(p).strip()
+            ]
+        else:
+            # Fallback: parse the arbitrator_verdict prose into bullet points.
+            verdict_text: str = data.get("arbitrator_verdict", "")
+            summary_points = parse_summary_points(verdict_text)
+
+        data["summary_points"] = summary_points
+
+        # ───────────────────────────────────────────────────────────────────────────────
+        # 4b. Build active_agents from the static PersonaRegistry (Prompt 2)
+        # Each dynamically-generated LLM persona is fuzzy-matched to a canonical
+        # PersonaMetadata profile so the Compose (ⓘ) modal always gets structured,
+        # non-hallucinated characteristics data — no extra LLM round-trip needed.
+        # ───────────────────────────────────────────────────────────────────────────────
+        active_agents: list[PersonaMetadata] = [
+            lookup_persona_metadata(
+                name=p.get("name", "Unknown Agent"),
+                role=p.get("demographic_role", ""),
+            )
+            for p in data.get("personas", [])
+        ]
+        data["active_agents"] = [agent.model_dump() for agent in active_agents]
+
+        # 4c. Inject backward-compatibility properties for dashboard view integrity
         data["status"] = "completed"
         data["summary_verdict"] = data["arbitrator_verdict"]
         data["scores"] = {

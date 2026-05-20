@@ -1,10 +1,86 @@
 import json
 import os
+import re
 from vertexai.generative_models import GenerativeModel, Content, Part
 from vertexai.preview.vision_models import ImageGenerationModel
 from google import genai
 from google.genai import types
 from app.core.config import settings
+
+
+# ── Mediator Output Parser ────────────────────────────────────────────────────────
+
+def parse_summary_points(raw_text: str) -> list[str]:
+    """
+    Robustly extracts a clean ``list[str]`` from the Mediator Agent's raw text
+    output, regardless of the format the LLM chose to use.
+
+    Parsing strategy (attempted in order):
+    1. Direct JSON array  – ``["Point 1", "Point 2"]``
+    2. JSON object with a ``summary_points`` / ``points`` key.
+    3. ``###`` delimiter splitting (explicit split token).
+    4. Markdown bullet stripping  – lines starting with ``-``, ``*``, or ``•``.
+    5. Numbered list stripping  – lines starting with ``1.``, ``2.`` …
+    6. Double-newline paragraph splitting as last resort.
+
+    All strategies strip empty strings and whitespace so the frontend
+    never receives blank bullet entries.
+
+    Args:
+        raw_text: The raw string from the LLM response.
+
+    Returns:
+        A non-empty list of clean, stripped point strings.
+        Returns ``[raw_text.strip()]`` as a safe single-item fallback
+        if all strategies fail to produce multiple points.
+    """
+    text = raw_text.strip()
+    if not text:
+        return []
+
+    # 1. Try parsing as a raw JSON array
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            points = [str(p).strip() for p in parsed if str(p).strip()]
+            if points:
+                return points
+        # 2. JSON object with a known key
+        if isinstance(parsed, dict):
+            for key in ("summary_points", "points", "verdict_points", "bullets"):
+                if key in parsed and isinstance(parsed[key], list):
+                    points = [str(p).strip() for p in parsed[key] if str(p).strip()]
+                    if points:
+                        return points
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Strip markdown code fences if present (```json ... ```)
+    text = re.sub(r"```[\w]*\n?", "", text).strip()
+
+    # 3. ### delimiter
+    if "###" in text:
+        points = [p.strip() for p in text.split("###") if p.strip()]
+        if len(points) > 1:
+            return points
+
+    # 4. Markdown bullet lines (-, *, •)
+    bullet_lines = re.findall(r"^[\-\*•]\s+(.+)", text, re.MULTILINE)
+    if len(bullet_lines) > 1:
+        return [line.strip() for line in bullet_lines if line.strip()]
+
+    # 5. Numbered list lines  (1. / 1) / 1-)
+    numbered_lines = re.findall(r"^\d+[\.)\-]\s+(.+)", text, re.MULTILINE)
+    if len(numbered_lines) > 1:
+        return [line.strip() for line in numbered_lines if line.strip()]
+
+    # 6. Double-newline paragraph split
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if len(paragraphs) > 1:
+        return paragraphs
+
+    # Ultimate fallback: return the full text as a single-item list.
+    return [text]
 
 
 class LazyGenAIClient:
@@ -126,20 +202,31 @@ class UrbanAgentSimulationEngine:
         )
 
         arbitration_prompt = f"""
-        You are an elite urban planning arbitrator specializing in developing civic infrastructure stability.
+        You are the CitySmart Mediator Agent — an elite urban planning arbitrator specialising in developing-world civic infrastructure.
         Review this community feedback matrix representing real local populations:
-        
+
         {formatted_critiques}
-        
-        Synthesize these diverse citizen viewpoints. Balance public demographic safety concerns against commercial utility, pedestrian accessibility, and informal transit flows.
-        Output your evaluation strictly in a JSON object format containing the exact keys specified below. No markdown wrapping.
-        
+
+        CRITICAL OUTPUT RULES (MUST follow exactly):
+        • You MUST NOT write continuous prose paragraphs or narrative summaries.
+        • Your synthesis MUST be structured as a JSON object with the exact keys listed below.
+        • The `summary_points` field MUST be a JSON array of 5 to 7 distinct, self-contained strings.
+        • Each string in `summary_points` represents one clear, actionable policy insight.
+        • No Markdown, no code fences, no trailing commentary outside the JSON object.
+
         REQUIRED JSON OUTPUT FORMAT:
         {{
             "social_impact_score": 0.0 to 100.0,
             "economic_viability_score": 0.0 to 100.0,
             "political_feasibility_score": 0.0 to 100.0,
-            "summary_verdict": "Clear synthesis text detailing systemic liabilities or community wins.",
+            "summary_verdict": "Single concise headline sentence — the most critical finding.",
+            "summary_points": [
+                "Actionable policy point 1 with concrete recommendation.",
+                "Actionable policy point 2 identifying specific demographic risk.",
+                "Actionable policy point 3 detailing structural trade-off.",
+                "Actionable policy point 4 — minimum 5, maximum 7 total points.",
+                "Actionable policy point 5 with engineering or zoning fix."
+            ],
             "blueprint_revisions": [
                 {{
                     "original_element": "Description of official proposed element",

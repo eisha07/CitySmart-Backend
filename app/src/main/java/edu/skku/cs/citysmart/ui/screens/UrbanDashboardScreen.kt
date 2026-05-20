@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,16 +25,17 @@ import androidx.navigation.compose.rememberNavController
 import edu.skku.cs.citysmart.domain.*
 import edu.skku.cs.citysmart.ui.components.*
 
-// 1. Define our 4 separate screens and their icons
-sealed class NavScreen(val route: String, val title: String, val icon: ImageVector) {
-    object Map : NavScreen("map", "Map", Icons.Filled.LocationOn)
-    object Analytics : NavScreen("analytics", "Analytics", Icons.Filled.Assessment)
-    object Blueprints : NavScreen("blueprints", "Blueprints", Icons.Filled.Construction)
-    object Comms : NavScreen("comms", "Feed", Icons.Filled.Forum)
+// 1. Define our 5 separate screens and their icons
+sealed class NavScreen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    object Map       : NavScreen("map",      "Map",     Icons.Filled.LocationOn)
+    object Analytics : NavScreen("analytics","Scores",  Icons.Filled.Assessment)
+    object Blueprints: NavScreen("blueprints","Plans",  Icons.Filled.Construction)
+    object Comms     : NavScreen("comms",    "Feed",    Icons.Filled.Forum)
+    object Personas  : NavScreen("personas", "Agents",  Icons.Filled.Group)
 }
 
 /**
- * Phase 7 Refactored: Bottom Navigation Architecture
+ * Bottom-navigation shell.  Five tabs: Map | Scores | Plans | Feed | Agents
  */
 @Composable
 fun MainNavigationShell(
@@ -42,13 +44,11 @@ fun MainNavigationShell(
 ) {
     val navController = rememberNavController()
 
-    // Scaffold automatically handles the placement of the BottomBar
     Scaffold(
         bottomBar = { DashboardBottomNav(navController) },
-        containerColor = Color(0xFF050505) // Deep command center background
+        containerColor = Color(0xFF050505)
     ) { paddingValues ->
 
-        // NavHost swaps out the UI based on which tab is clicked
         NavHost(
             navController = navController,
             startDestination = NavScreen.Map.route,
@@ -64,12 +64,18 @@ fun MainNavigationShell(
             // TAB 2: Analytics & Gauges
             composable(NavScreen.Analytics.route) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
                 ) {
-                    ArbitratorVerdictTerminal(verdictText = state.summaryVerdict)
+                    // ── Prompt 1: Structured bullet verdict ──────────────────
+                    ArbitratorVerdictTerminal(
+                        summaryPoints = state.summaryPoints,
+                        headline      = state.summaryVerdict
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
-                    TriPillarGaugePanel(scores = state.scores)
+                    // Feasibility score gauges (nullable-safe)
+                    state.scores?.let { TriPillarGaugePanel(scores = it) }
                 }
             }
 
@@ -86,16 +92,27 @@ fun MainNavigationShell(
                     LiveDebateTickerPanel(ticks = state.liveDebateTicks)
                 }
             }
+
+            // TAB 5: Prompt 2 — Active Persona Agent Cards with ⓘ modal
+            composable(NavScreen.Personas.route) {
+                AgentRosterPanel(
+                    agents = state.activeAgents ?: emptyList(),
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 }
 
 /**
- * The Bottom Navigation Bar Component
+ * The Bottom Navigation Bar Component (5 tabs)
  */
 @Composable
 fun DashboardBottomNav(navController: NavHostController) {
-    val items = listOf(NavScreen.Map, NavScreen.Analytics, NavScreen.Blueprints, NavScreen.Comms)
+    val items = listOf(
+        NavScreen.Map, NavScreen.Analytics, NavScreen.Blueprints,
+        NavScreen.Comms, NavScreen.Personas
+    )
 
     // Watch the current route so we know which tab to highlight
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -136,21 +153,40 @@ fun DashboardBottomNav(navController: NavHostController) {
 @Composable
 fun PreviewMainNavigationShell() {
     val mockState = UrbanSimulationState(
-        projectId = "saddar-bazaar",
-        summaryVerdict = "Ground-level pedestrian crossings create a critical friction bottleneck.",
+        projectId     = "saddar-bazaar",
+        summaryVerdict = "Pedestrian gap at G-9 crossing creates a systemic equity failure.",
+        summaryPoints  = listOf(
+            "Rickshaw pick-up zones must be set back 15 m from the main intersection.",
+            "Underpass northern approach has a critical lighting gap — 8 lamp posts required.",
+            "Eastern khokha vendors face displacement; a 3 m vending setback must be added.",
+            "New lane markings conflict with informal left-turn patterns at peak hours.",
+            "60-day public consultation required before political acceptance is achievable."
+        ),
         scores = FeasibilityScores(84.5f, 42.0f, 70.0f),
         liveDebateTicks = listOf(
             LiveDebateTick("10:02:45", "Aisha", "female_commuter", "The proposed pedestrian bridge feels too isolated.", "WARNING")
         ),
         blueprintRevisions = listOf(
-            BlueprintRevision("REV-001", "Ground-level crosswalk at Sector G-9 intersection.", "High risk collision zone.", "Elevated pedestrian bridge.")
+            BlueprintRevision("REV-001", "Ground-level crosswalk at Sector G-9.", "High risk collision zone.", "Elevated pedestrian bridge.")
+        ),
+        activeAgents = listOf(
+            edu.skku.cs.citysmart.domain.PersonaMetadata(
+                name = "Aisha, Female Commuter",
+                iconTag = "👩",
+                shortDescription = "Daily commuter for whom safety dictates every route choice.",
+                characteristics = listOf(
+                    "Lighting conditions are the primary route-selection factor.",
+                    "Avoids unlit alleys and unmarked crossing points.",
+                    "Relies on scheduled public transport over informal options."
+                )
+            )
         )
     )
 
     val mockTelemetry = SpatialTelemetryCollection(
         features = listOf(
             GeoJsonFeature(
-                geometry = GeometryData("LineString", listOf(listOf(73.0479, 33.6844), listOf(73.0579, 33.6944))),
+                geometry   = GeometryData("LineString", listOf(listOf(73.0479, 33.6844), listOf(73.0579, 33.6944))),
                 properties = TelemetryProperties("female_commuter", 1.5f)
             )
         )
