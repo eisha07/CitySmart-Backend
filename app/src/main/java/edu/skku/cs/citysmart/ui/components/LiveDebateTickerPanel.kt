@@ -1,7 +1,10 @@
 package edu.skku.cs.citysmart.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,21 +13,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import edu.skku.cs.citysmart.domain.LiveDebateTick
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 /**
- * Step 31 & 32: The Main Scrollable Debate Container
+ * Updated Live Agent Chat Terminal: Aligned with the Analytics/UrbanDashboard theme.
+ * Uses GlassPanel for messages and a transparent background to show the global gradient.
  */
 @Composable
 fun LiveDebateTickerPanel(
@@ -32,146 +37,111 @@ fun LiveDebateTickerPanel(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    
+    // Local state to manage the "streaming" effect of messages
+    val visibleTicks = remember { mutableStateListOf<LiveDebateTick>() }
 
-    // Step 37: Auto-scroll to the bottom whenever a new tick arrives
-    LaunchedEffect(ticks.size) {
-        if (ticks.isNotEmpty()) {
-            listState.animateScrollToItem(ticks.size - 1)
+    LaunchedEffect(ticks) {
+        if (ticks.size != visibleTicks.size) {
+            visibleTicks.clear()
+            ticks.forEach { tick ->
+                delay(800) // Slightly faster entry
+                visibleTicks.add(tick)
+            }
+        }
+    }
+
+    LaunchedEffect(visibleTicks.size) {
+        if (visibleTicks.isNotEmpty()) {
+            listState.animateScrollToItem(visibleTicks.size - 1)
         }
     }
 
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .height(300.dp) // Fixed height block for the dashboard
-            .background(Color(0xFF0D0D0D))
-            .border(1.dp, Color(0xFF262626))
-            .padding(8.dp)
+            .fillMaxSize()
+            .padding(16.dp)
     ) {
+        // Massive thin number header to match Analytics theme
         Text(
-            text = "LIVE AGENT TELEMETRY FEED",
-            color = Color.Gray,
-            fontSize = 10.sp,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier.padding(bottom = 8.dp)
+            text = "LIVE",
+            style = MaterialTheme.typography.displayLarge,
+            modifier = Modifier.padding(top = 24.dp)
+        )
+        Text(
+            text = "AGENT TELEMETRY FEED",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(bottom = 32.dp)
         )
 
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 8.dp)
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            items(ticks) { tick ->
-                if (tick.agentProfile == "female_commuter") {
-                    AishaStreamComponent(tick)
-                } else {
-                    TariqStreamComponent(tick)
+            items(visibleTicks, key = { it.timestamp + (it.messageText ?: "") }) { tick ->
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(durationMillis = 500)
+                    ) + fadeIn(animationSpec = tween(durationMillis = 500))
+                ) {
+                    ChatBubble(tick)
                 }
             }
         }
     }
 }
 
-/**
- * Steps 33 & 34: Aisha's Commuter Component (Left Aligned - Magenta/Red focus)
- */
 @Composable
-fun AishaStreamComponent(tick: LiveDebateTick) {
+fun ChatBubble(tick: LiveDebateTick) {
+    val isAisha = tick.agentProfile == "female_commuter"
+    
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.Start
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isAisha) Arrangement.Start else Arrangement.End
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .background(Color(0xFF1A0A10), RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp, bottomStart = 12.dp))
-                .border(1.dp, Color(0xFFE91E63).copy(alpha = 0.3f), RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp, bottomStart = 12.dp))
-                .padding(10.dp)
+        GlassPanel(
+            modifier = Modifier.fillMaxWidth(0.85f)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = (tick.agentName ?: if (isAisha) "AISHA" else "TARIQ").uppercase(Locale.ROOT),
+                        color = if (isAisha) Color(0xFFE91E63) else Color(0xFF00B0FF),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    AlertChip(level = tick.alertLevel)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = tick.messageText ?: "",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    textAlign = if (isAisha) TextAlign.Start else TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = tick.timestamp,
-                    color = Color.Gray,
+                    color = Color.White.copy(alpha = 0.5f),
                     fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.align(if (isAisha) Alignment.End else Alignment.Start)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = (tick.agentName ?: "").uppercase(Locale.ROOT),
-                    color = Color(0xFFE91E63),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                AlertChip(level = tick.alertLevel)
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = tick.messageText ?: "",
-                color = Color.White,
-                fontSize = 13.sp,
-                lineHeight = 18.sp
-            )
         }
     }
 }
 
-/**
- * Steps 35 & 36: Tariq's Driver Component (Right Aligned - Cyan/Blue focus)
- */
-@Composable
-fun TariqStreamComponent(tick: LiveDebateTick) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.End
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .background(Color(0xFF0A141A), RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp, bottomEnd = 12.dp))
-                .border(1.dp, Color(0xFF00B0FF).copy(alpha = 0.3f), RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp, bottomEnd = 12.dp))
-                .padding(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
-            ) {
-                AlertChip(level = tick.alertLevel)
-                Spacer(modifier = Modifier.width(8.dp))
-                val agentDisplayName = (tick.agentName ?: "").uppercase(Locale.ROOT)
-                Text(
-                    text = agentDisplayName,
-                    color = Color(0xFF00B0FF),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = tick.timestamp,
-                    color = Color.Gray,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = tick.messageText ?: "",
-                color = Color.White,
-                fontSize = 13.sp,
-                lineHeight = 18.sp
-            )
-        }
-    }
-}
-
-/**
- * Tiny utility component for the neon CRITICAL/WARNING tags
- */
 @Composable
 fun AlertChip(level: String?) {
     val nonNullLevel = level ?: "INFO"
@@ -184,7 +154,7 @@ fun AlertChip(level: String?) {
     Box(
         modifier = Modifier
             .background(bgColor, RoundedCornerShape(4.dp))
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
             text = nonNullLevel,
@@ -201,36 +171,29 @@ fun AlertChip(level: String?) {
 fun PreviewLiveDebateTicker() {
     MaterialTheme {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color(0xFF0D0D0D)
+            modifier = Modifier.fillMaxSize(),
+            color = Color(0xFF050505)
         ) {
             val mockTicks = listOf(
                 LiveDebateTick(
                     timestamp = "10:02:45",
                     agentName = "Aisha",
                     agentProfile = "female_commuter",
-                    messageText = "The proposed pedestrian bridge feels too isolated at night. Requesting high-visibility lighting.",
+                    messageText = "Yar, ye bridge raat ko bohat sunsaan lagta hai. Lightein thori zyada honi chahiye yahan.",
                     alertLevel = "WARNING"
                 ),
                 LiveDebateTick(
                     timestamp = "10:03:12",
                     agentName = "Tariq",
                     agentProfile = "qingqi_driver",
-                    messageText = "If you block that intersection for the bridge pillars, my turning radius is completely destroyed.",
+                    messageText = "Bhai agar ye pillars beech mein agaye to qingqi morna mushkil ho jaye ga. Rasta bohat tang hai.",
                     alertLevel = "CRITICAL"
-                ),
-                LiveDebateTick(
-                    timestamp = "10:03:50",
-                    agentName = "Aisha",
-                    agentProfile = "female_commuter",
-                    messageText = "Understood, but ground-level crossing without a dedicated signal is a severe safety risk.",
-                    alertLevel = "INFO"
                 )
             )
 
             LiveDebateTickerPanel(
                 ticks = mockTicks,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.fillMaxSize()
             )
         }
     }

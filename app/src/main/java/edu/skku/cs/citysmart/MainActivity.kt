@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
                     navController = rootNavController,
                     startDestination = "genesis_input"
                 ) {
-                    // SCREEN 1: The Input Terminal (Notice: No modifier here!)
+                    // SCREEN 1: The Input Terminal
                     composable("genesis_input") {
                         GenesisInputScreen(
                             viewModel = viewModel,
@@ -52,7 +52,16 @@ class MainActivity : ComponentActivity() {
                         if (state != null && telemetry != null) {
                             MainNavigationShell(
                                 state = state!!,
-                                telemetry = telemetry!!
+                                telemetry = telemetry!!,
+                                onResetAndNavigateBack = {
+                                    viewModel.resetState()
+                                    rootNavController.navigate("genesis_input") {
+                                        popUpTo("dashboard") { inclusive = true }
+                                    }
+                                },
+                                onExitApp = {
+                                    finish()
+                                }
                             )
                         } else {
                             // Fallback loading screen

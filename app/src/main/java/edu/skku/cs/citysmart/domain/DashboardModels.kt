@@ -1,6 +1,6 @@
 /**
- * UPDATED: Integrated PersonaMetadata and structured UrbanSimulationState fields from main.
- * Kept ProjectAmendmentRequest, ChatInterrogationRequest, etc. for FastAPI compatibility.
+ * UPDATED: Added ProjectAmendmentRequest, ChatInterrogationRequest, ChatResponse,
+ * ConceptRenderRequest, and ChatMessage models to match the new FastAPI backend specification.
  */
 package edu.skku.cs.citysmart.domain
 
@@ -28,13 +28,12 @@ data class GeometryData(
     @SerializedName("type") val type: String,
     @SerializedName("coordinates") val coordinates: List<List<Double>>
 )
-
 data class TelemetryProperties(
     @SerializedName("profile") val agentProfile: String,
     @SerializedName("friction_intensity") val frictionIntensity: Float,
     @SerializedName("agent_id") val agentId: String = "",
-    @SerializedName("agent_name") val agentName: String? = null,
-    @SerializedName("lighting_vector_safety") val lightingSafety: String? = null
+    @SerializedName("lighting_vector_safety") val lightingSafety: String? = null,
+    @SerializedName("agent_name") val agentName: String? = null // 🚀 Added this! Nullable just in case the backend doesn't send it.
 ) {
     val profile: String get() = agentProfile
 }
@@ -55,8 +54,8 @@ data class BlueprintRevision(
     @SerializedName("original_element") val originalElement: String,
     @SerializedName("failure_mode_detected") val failureModeDetected: String,
     @SerializedName("amended_design_fix") val amendedDesignFix: String,
-    @SerializedName("feasibility_status") val feasibilityStatus: String? = "PENDING",
-    @SerializedName("agent_sentiment") val agentSentiment: String? = "NEUTRAL"
+    @SerializedName("feasibility_status") val feasibilityStatus: String = "UNKNOWN",
+    @SerializedName("agent_sentiment") val agentSentiment: String? = "NEUTRAL" // 🚀 Added this!
 )
 
 data class FeasibilityScores(
@@ -67,16 +66,15 @@ data class FeasibilityScores(
 
 data class UrbanSimulationState(
     @SerializedName("project_id") val projectId: String,
-    @SerializedName("summary_verdict") val summaryVerdict: String? = null,
-    @SerializedName("scores") val scores: FeasibilityScores? = null,
-    @SerializedName("live_debate_ticks") val liveDebateTicks: List<LiveDebateTick> = emptyList(),
-    @SerializedName("blueprint_revisions") val blueprintRevisions: List<BlueprintRevision> = emptyList(),
+    @SerializedName("summary_verdict") val summaryVerdict: String,
+    @SerializedName("scores") val scores: FeasibilityScores,
+    @SerializedName("live_debate_ticks") val liveDebateTicks: List<LiveDebateTick>,
+    @SerializedName("blueprint_revisions") val blueprintRevisions: List<BlueprintRevision>,
     @SerializedName("spatial_telemetry") val spatialTelemetry: SpatialTelemetryCollection? = null,
     @SerializedName("summary_points") val summaryPoints: List<String> = emptyList(),
-    @SerializedName("active_agents") val activeAgents: List<PersonaMetadata>? = null
 )
 
-// MODELS FOR FASTAPI SPECIFICATION
+// NEW MODELS FOR FASTAPI SPECIFICATION
 
 data class ProjectAmendmentRequest(
     @SerializedName("project_id") val projectId: String,

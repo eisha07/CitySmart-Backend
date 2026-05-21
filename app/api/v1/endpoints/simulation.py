@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.models.database import ProjectModel, ProjectVersionModel, DocumentInsightModel
 from app.schemas.simulation import (
+    GeminiSimulationSchema,
     SimulationStateResponse,
     CitizenPersona,
     FeasibilityScores,
@@ -96,19 +97,19 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
         simulation_prompt = f"""
         You are the CitySmart Core Urban Simulation Multi-Agent Matrix.
         Evaluate the following project under the Saddar Lahore urban planning context.
-        
+
         PROJECT ID: {project_id}
         BASELINE DESIGN PROPOSAL:
         {baseline_text}
-        
+
         ACTIVE AMENDMENT / BLUEPRINT DESIGN FIX:
         {amendment_text}
-        
+
         VECTOR CONTEXT CHUNKS:
         {vector_context}
-        
+
         INSTRUCTIONS:
-        1. Generate exactly 10 highly diverse, hyper-localized citizen personas (e.g. rickshaw drivers, local Saddar shopkeepers, pedestrian shoppers, elderly residents, female commuters, students, traffic wardens). 
+        1. Generate exactly 10 highly diverse, hyper-localized citizen personas (e.g. rickshaw drivers, local Saddar shopkeepers, pedestrian shoppers, elderly residents, female commuters, students, traffic wardens).
            For each citizen, generate a unique descriptive 'name', their specific 'demographic_role', a quantitative 'sentiment_score' (0-100) detailing how much they support the project revision, and an anthropomorphic 'system_instruction' written in first-person (e.g. 'I am Muhammad, a 45-year-old rickshaw driver in Saddar...') detailing their day-to-day commute challenges, concerns, and stance on the project.
         2. Evaluate overall project feasibility indices (0 to 100) for:
            - 'social_feasibility_score'
@@ -122,12 +123,17 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
              Example format: ["Point about pedestrian safety.", "Point about rickshaw lane displacement.", ...]
         """
 
+        # Invoke Gemini 2.5 Flash with the lean GeminiSimulationSchema.
+        # We CANNOT pass SimulationStateResponse here because it contains
+        # Dict[str, Any] fields (spatial_telemetry) that Pydantic serialises
+        # with `additionalProperties`, which the Gemini API rejects (INVALID_ARGUMENT).
+        # We enrich the parsed response with those fields manually below.
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=simulation_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=SimulationStateResponse,
+                response_schema=GeminiSimulationSchema,
                 temperature=0.7,
             ),
         )

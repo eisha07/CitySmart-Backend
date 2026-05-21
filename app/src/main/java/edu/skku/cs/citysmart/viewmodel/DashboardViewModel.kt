@@ -34,6 +34,17 @@ class DashboardViewModel : ViewModel() {
         NetworkClient.updateBaseUrl(ip)
     }
 
+    /**
+     * Resets the entire simulation state to allow for a fresh policy ingestion.
+     */
+    fun resetState() {
+        _simulationState.value = null
+        _telemetry.value = null
+        _errorMessage.value = null
+        _showFallbackOption.value = false
+        _isLoading.value = false
+    }
+
     private fun getProxySimulationState(): UrbanSimulationState {
         // COORDINATES clustered around Islamabad Centaurus (73.05, 33.70)
         val sampleFeatures = listOf(
@@ -46,34 +57,68 @@ class DashboardViewModel : ViewModel() {
                     listOf(73.055, 33.709),
                     listOf(73.055, 33.707)
                 )),
-                properties = TelemetryProperties("proposed_infrastructure", 0.0f, "station_alpha")
+                properties = TelemetryProperties("proposed_infrastructure", 0.0f, "station_alpha", "Station Alpha")
             ),
             // 2. COMMUTER PATH (Magenta)
             GeoJsonFeature(
                 geometry = GeometryData("LineString", listOf(listOf(73.054, 33.706), listOf(73.058, 33.710))),
-                properties = TelemetryProperties("female_commuter", 1.8f, "agent_1")
+                properties = TelemetryProperties("female_commuter", 1.8f, "agent_1", "Aisha (Commuter)")
             ),
             // 3. TRANSIT FLOW (Cyan)
             GeoJsonFeature(
                 geometry = GeometryData("LineString", listOf(listOf(73.052, 33.708), listOf(73.060, 33.708))),
-                properties = TelemetryProperties("qingqi_driver", 0.8f, "agent_2")
+                properties = TelemetryProperties("qingqi_driver", 0.8f, "agent_2", "Tariq (Driver)")
             ),
             // 4. CRITICAL PIN (Red Marker)
             GeoJsonFeature(
                 geometry = GeometryData("Point", listOf(listOf(73.056, 33.708))),
-                properties = TelemetryProperties("vulnerable_demographic", 2.2f, "bottleneck_1")
+                properties = TelemetryProperties("vulnerable_demographic", 2.2f, "bottleneck_1", "Pedestrian Friction Point")
             )
         )
 
         return UrbanSimulationState(
             projectId = "proxy-demo-id",
-            summaryVerdict = "AI OFFLINE: Using high-visibility proxy telemetry.",
+            summaryVerdict = "SYSTEM OFFLINE: Utilizing Proxy Telemetry.\n- Pedestrian safety risks identified in the G-9 sector.\n- Current barriers obstruct the path for small transit vehicles like qingqis and rickshaws.\n- Inadequate nighttime lighting poses a significant security challenge.",
             scores = FeasibilityScores(78.5f, 62.0f, 55.0f),
             liveDebateTicks = listOf(
-                LiveDebateTick("00:00", "System", "admin", "Visualizing proposed infrastructure and telemetry.", "INFO")
+                LiveDebateTick("10:00:05", "System", "admin", "Simulation shuru ho chuki hai. Sab data process ho raha hai.", "INFO"),
+                LiveDebateTick("10:01:12", "Aisha", "female_commuter", "Yar, station ke paas roshni bohat kam hai. Raat ko bohat darr lagta hai nikalnay main.", "WARNING"),
+                LiveDebateTick("10:02:45", "Tariq", "qingqi_driver", "Agar yeh dividers pakkay hain toh mera bohat nuqsan hoga. Rickshaw murnay ki jagah hi nahi bache gi.", "CRITICAL"),
+                LiveDebateTick("10:03:30", "Aisha", "female_commuter", "Tariq bhai theek keh rahay hain, in barriers ki wajah se logon ko road ke beech main ana parta hai.", "INFO")
             ),
             blueprintRevisions = listOf(
-                BlueprintRevision("R1", "Main Intersection", "High collision risk", "Elevated Pedestrian Bridge")
+                BlueprintRevision(
+                    revisionId = "R1", 
+                    originalElement = "High-profile concrete road dividers (1.5m).", 
+                    failureModeDetected = "Turning radius insufficient for local rickshaws and qingqi drivers.", 
+                    amendedDesignFix = "Replace with low-profile modular bollards to improve vehicle maneuverability.",
+                    feasibilityStatus = "CONFLICT",
+                    agentSentiment = "NEGATIVE"
+                ),
+                BlueprintRevision(
+                    revisionId = "R2", 
+                    originalElement = "Dedicated BRT Lane in Saddar core.", 
+                    failureModeDetected = "None", 
+                    amendedDesignFix = "None",
+                    feasibilityStatus = "FEASIBLE",
+                    agentSentiment = "POSITIVE"
+                ),
+                BlueprintRevision(
+                    revisionId = "R3", 
+                    originalElement = "Standard ground-level crosswalks.", 
+                    failureModeDetected = "High risk of accidents during low-visibility night hours.", 
+                    amendedDesignFix = "Install overhead pedestrian bridges with solar-powered illumination.",
+                    feasibilityStatus = "CONFLICT",
+                    agentSentiment = "NEGATIVE"
+                ),
+                BlueprintRevision(
+                    revisionId = "R4", 
+                    originalElement = "Solar-powered smart bus stations.", 
+                    failureModeDetected = "None", 
+                    amendedDesignFix = "None",
+                    feasibilityStatus = "FEASIBLE",
+                    agentSentiment = "POSITIVE"
+                )
             ),
             spatialTelemetry = SpatialTelemetryCollection(features = sampleFeatures)
         )

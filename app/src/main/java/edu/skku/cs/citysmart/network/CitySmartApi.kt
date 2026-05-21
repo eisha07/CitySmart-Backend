@@ -23,21 +23,21 @@ data class ExtractedMetadata(
 )
 
 interface CitySmartApi {
-    @GET("/api/v1/simulation/{project_id}/state")
+    // MATCHES: @router.get("/{project_id}/state")
+    @GET("simulation/{project_id}/state")
     suspend fun getSimulationState(@Path("project_id") projectId: String): UrbanSimulationState
 
-    // 🚀 INGESTION: Returns metadata + project_id
-    @POST("/api/v1/projects/ingest")
+    @POST("api/v1/projects/ingest")
     suspend fun ingestProposal(@Body request: IngestRequest): IngestResponse
 
-    @POST("/api/v1/projects/amend")
+    @POST("api/v1/projects/amend")
     suspend fun amendProposal(@Body request: ProjectAmendmentRequest): UrbanSimulationState
 
-    // 💬 CHAT INTERROGATION: Deep dive with specific agent personas
-    @POST("/api/v1/chat/interrogate")
+    // MATCHES: @router.post("/chat")
+    @POST("simulation/chat")
     suspend fun interrogateAgent(@Body request: ChatInterrogationRequest): ChatResponse
 
-    // 🎨 CONCEPT RENDERING: Generate visual interpretations of design elements
-    @POST("/api/v1/visual/render")
+    // MATCHES: @router.post("/render-concept")
+    @POST("simulation/render-concept")
     suspend fun renderConcept(@Body request: ConceptRenderRequest): ConceptRenderResponse
 }

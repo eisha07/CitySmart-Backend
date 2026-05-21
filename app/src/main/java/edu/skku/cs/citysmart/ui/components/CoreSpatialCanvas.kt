@@ -9,7 +9,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +33,6 @@ import edu.skku.cs.citysmart.domain.GeoJsonFeature
 import edu.skku.cs.citysmart.domain.GeometryData
 import edu.skku.cs.citysmart.domain.SpatialTelemetryCollection
 import edu.skku.cs.citysmart.domain.TelemetryProperties
-import edu.skku.cs.citysmart.ui.theme.CitySmartTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -94,6 +92,21 @@ fun CoreSpatialCanvas(
         }
     }
 
+    // --- DATA TRACKING FOR DYNAMIC LEGEND ---
+    val activeProfiles = remember(telemetry) {
+        val set = mutableSetOf<String>()
+        telemetry.features.forEach { 
+            if (it.properties.agentProfile == "proposed_infrastructure") {
+                set.add("PROPOSED")
+            } else if (it.properties.frictionIntensity > 1.3f) {
+                set.add("FRICTION")
+            } else {
+                set.add(it.properties.agentProfile)
+            }
+        }
+        set
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         if (isInspectionMode) {
             Box(modifier = Modifier.fillMaxSize().background(Color(0xFF121212)), contentAlignment = Alignment.Center) {
@@ -103,55 +116,67 @@ fun CoreSpatialCanvas(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                properties = MapProperties(isTrafficEnabled = true),
+                properties = MapProperties(
+                    isTrafficEnabled = true,
+                    mapStyleOptions = null 
+                ),
                 uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = true)
             ) {
                 telemetry.features.forEach { feature ->
                     val coordsData = feature.geometry.coordinates
+                    val profile = feature.properties.agentProfile
                     
-                    val pathColor = when (feature.properties.agentProfile) {
+                    val color = when (profile) {
                         "proposed_infrastructure" -> Color.White
                         "female_commuter" -> Color(0xFFFF00FF)
                         "qingqi_driver" -> Color(0xFF00FFFF)
                         else -> if (feature.properties.frictionIntensity > 1.3f) Color.Red else Color(0xFF00FF00)
                     }
 
-                    if (feature.geometry.type == "LineString") {
+                    if (profile == "proposed_infrastructure" && feature.geometry.type == "LineString") {
                         val points = coordsData.map { LatLng(it[1], it[0]) }
-                        if (points.isNotEmpty()) {
-                            Polyline(
-                                points = points,
-                                color = pathColor,
-                                width = if (feature.properties.agentProfile == "proposed_infrastructure") 25f else 18f,
-                                geodesic = true,
-                                zIndex = if (feature.properties.agentProfile == "proposed_infrastructure") 1f else 0f
-                            )
-                        }
-                    }
-
-                    if (feature.geometry.type == "Point" && coordsData.isNotEmpty()) {
-                        val point = LatLng(coordsData[0][1], coordsData[0][0])
-                        Marker(
-                            state = MarkerState(position = point),
-                            title = feature.properties.agentProfile,
-                            icon = BitmapDescriptorFactory.defaultMarker(
-                                when (feature.properties.agentProfile) {
-                                    "female_commuter" -> BitmapDescriptorFactory.HUE_MAGENTA
-                                    "qingqi_driver" -> BitmapDescriptorFactory.HUE_CYAN
-                                    else -> BitmapDescriptorFactory.HUE_RED
-                                }
-                            )
+                        Polyline(
+                            points = points,
+                            color = Color.White,
+                            width = 12f,
+                            pattern = listOf(com.google.android.gms.maps.model.Dash(20f), com.google.android.gms.maps.model.Gap(10f)),
+                            zIndex = 10f
                         )
-                    }
+                        Polygon(
+                            points = points,
+                            fillColor = Color.White.copy(alpha = 0.15f),
+                            strokeWidth = 0f
+                        )
+                    } 
+                    else {
+                        val pinLocation = if (feature.geometry.type == "Point" && coordsData.isNotEmpty()) {
+                            LatLng(coordsData[0][1], coordsData[0][0])
+                        } else if (feature.geometry.type == "LineString" && coordsData.isNotEmpty()) {
+                            val mid = coordsData.size / 2
+                            LatLng(coordsData[mid][1], coordsData[mid][0])
+                        } else null
 
-                    if (feature.properties.frictionIntensity > 1.0f) {
-                        coordsData.forEach {
+                        if (pinLocation != null) {
                             Circle(
-                                center = LatLng(it[1], it[0]),
-                                radius = (40f * feature.properties.frictionIntensity).toDouble(),
-                                fillColor = pathColor.copy(alpha = 0.3f),
-                                strokeColor = pathColor,
-                                strokeWidth = 2f
+                                center = pinLocation,
+                                radius = (50f * feature.properties.frictionIntensity).toDouble(),
+                                fillColor = color.copy(alpha = 0.25f),
+                                strokeColor = color.copy(alpha = 0.6f),
+                                strokeWidth = 3f
+                            )
+
+                            // UPDATED: Show Agent Name in Title on pin click
+                            Marker(
+                                state = MarkerState(position = pinLocation),
+                                title = feature.properties.agentName ?: feature.properties.agentId,
+                                snippet = "Profile: $profile",
+                                icon = BitmapDescriptorFactory.defaultMarker(
+                                    when (profile) {
+                                        "female_commuter" -> BitmapDescriptorFactory.HUE_MAGENTA
+                                        "qingqi_driver" -> BitmapDescriptorFactory.HUE_CYAN
+                                        else -> if (feature.properties.frictionIntensity > 1.3f) BitmapDescriptorFactory.HUE_RED else BitmapDescriptorFactory.HUE_GREEN
+                                    }
+                                )
                             )
                         }
                     }
@@ -180,16 +205,32 @@ fun CoreSpatialCanvas(
             singleLine = true
         )
 
-        // --- LEGEND OVERLAY ---
+        // --- DYNAMIC LEGEND OVERLAY ---
         Column(
-            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp).background(Color(0xCC000000), RoundedCornerShape(8.dp)).padding(12.dp)
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(16.dp)
+                .background(Color(0xCC000000), RoundedCornerShape(8.dp))
+                .padding(12.dp)
         ) {
-            Text("TELEMETRY KEY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("ACTIVE TELEMETRY KEY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            LegendItem(Color.White, "PROPOSED STRUCTURE / BLUEPRINT")
-            LegendItem(Color.Red, "HIGH FRICTION / BOTTLENECK")
-            LegendItem(Color(0xFFFF00FF), "VULNERABLE COMMUTER")
-            LegendItem(Color(0xFF00FFFF), "TRANSIT OPERATOR")
+            
+            if (activeProfiles.contains("PROPOSED")) {
+                LegendItem(Color.White, "PROPOSED INFRASTRUCTURE")
+            }
+            if (activeProfiles.contains("FRICTION")) {
+                LegendItem(Color.Red, "CRITICAL FRICTION ZONE")
+            }
+            if (activeProfiles.contains("female_commuter")) {
+                LegendItem(Color(0xFFFF00FF), "VULNERABLE COMMUTER")
+            }
+            if (activeProfiles.contains("qingqi_driver")) {
+                LegendItem(Color(0xFF00FFFF), "TRANSIT OPERATOR")
+            }
+            if (activeProfiles.isEmpty()) {
+                Text("SCANNING FOR AGENTS...", color = Color.DarkGray, fontSize = 8.sp)
+            }
         }
     }
 }

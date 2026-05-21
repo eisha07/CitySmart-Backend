@@ -1,21 +1,28 @@
 /**
- * UPDATED: The default backend is now pointed to the deployed Google Cloud Run instance.
- * This ensures that network requests point to the production-ready simulation server.
+ * UPDATED: Added HttpLoggingInterceptor to catch 500 error tracebacks.
+ * Default scheme updated to HTTPS for secure cloud deployments.
  */
 package edu.skku.cs.citysmart.network
 
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    private const val BASE_URL = "https://citysmart-backend-147271219875.europe-west1.run.app/"
+    private const val BASE_URL = "https://citysmart-backend-1.onrender.com/"
     private var currentBaseUrl = BASE_URL
 
     private var retrofit: Retrofit? = null
 
+    // 🔍 NEW: The X-Ray logger to catch server crashes
+    private val loggingInterceptor = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.BODY
+    }
+
     private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor) // <-- Attached here
         .connectTimeout(60, TimeUnit.SECONDS) // Crucial for long AI generation times
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
@@ -36,8 +43,9 @@ object NetworkClient {
         var formattedIp = newIp.trim()
         if (formattedIp.isEmpty()) return
 
+        // 🛡️ UPDATED: Default to HTTPS to satisfy Render's strict security rules
         if (!formattedIp.startsWith("http://") && !formattedIp.startsWith("https://")) {
-            formattedIp = "http://$formattedIp"
+            formattedIp = "https://$formattedIp"
         }
         if (!formattedIp.endsWith("/")) {
             formattedIp = "$formattedIp/"
