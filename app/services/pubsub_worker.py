@@ -44,7 +44,6 @@ class CloudPubSubWorkerLoop:
                 )
                 self._subscriber = pubsub_v1.SubscriberClient(credentials=credentials)
             else:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "temp_sa_key.json"
                 self._subscriber = pubsub_v1.SubscriberClient()
         return self._subscriber
 
