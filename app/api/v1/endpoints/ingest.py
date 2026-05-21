@@ -84,7 +84,11 @@ async def ingest_unstructured_urban_document(
 
         # 1. Archive the entire raw submission up to Google Cloud Storage
         blob_name = f"raw_ingestion_logs/{proj_id}_{uuid.uuid4().hex[:6]}.txt"
-        await gcs_service.upload_text_log(blob_name, proposal_text)
+        try:
+            await gcs_service.upload_text_log(blob_name, proposal_text)
+        except Exception as e:
+            print(f"🔴 CRASH AT GCS: {e}")
+            raise
 
         # 2. Persist our Core Project Record Map baseline inside PostgreSQL
         project = ProjectModel(
@@ -106,7 +110,11 @@ async def ingest_unstructured_urban_document(
         text_chunks = chunk_text_by_semantic_bounds(proposal_text)
         if text_chunks:
             # 5. Asynchronously invoke Vertex AI to extract our high-dimensional embedding matrices
-            embeddings = await vertex_service.generate_embeddings(text_chunks)
+            try:
+                embeddings = await vertex_service.generate_embeddings(text_chunks)
+            except Exception as e:
+                print(f"🔴 CRASH AT VERTEX: {e}")
+                raise
 
             # 6. Build and save our vector models to pgvector
             for content, embedding in zip(text_chunks, embeddings):
@@ -120,7 +128,11 @@ async def ingest_unstructured_urban_document(
             await db.commit()
 
         # 7. Dispatch an asynchronous event processing message into our Pub/Sub pipeline
-        await pubsub_service.publish_simulation_trigger(proj_id)
+        try:
+            await pubsub_service.publish_simulation_trigger(proj_id)
+        except Exception as e:
+            print(f"🔴 CRASH AT PUBSUB: {e}")
+            raise
 
         return {
             "status": "successfully_extracted_and_ingested",
