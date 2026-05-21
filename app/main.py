@@ -101,3 +101,9 @@ async def system_health_ping():
         "region": "asia-northeast3 (Seoul)",
         "multi_agent_matrix": "online",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    # This allows you to run "python app/main.py" locally on port 8000
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
