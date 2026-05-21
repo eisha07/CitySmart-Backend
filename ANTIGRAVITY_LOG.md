@@ -24,7 +24,7 @@ This document certifies that **Antigravity**, the advanced autonomous AI agentic
 ### 🏗️ Phase 4: Structured Schema Extraction Gateway
 - Overhauled `/projects/ingest` and `/simulation/{project_id}/state` endpoints to accept unstructured strings.
 - Enforced rigid Pydantic schemas using native `types.GenerateContentConfig` and **`gemini-2.5-flash`** for structured JSON extraction.
-- Engineered a robust **GCS Local Log Fallback** that lazy-loads bucket metadata references using `client.bucket()` and falls back gracefully to local file storage if IAM permissions are restricted.
+- Engineered a robust **GCS Local Log Fallback** that lazy-loads bucket metadata references using `client.bucket()` and falls back gracefully to local file storage if IAM permissions areP restricted.
 
 ### 🛡️ Phase 5: Production Hardening, Logging & Testing
 - Integrated centralized logging telemetry middleware trapping HTTP methods, endpoints, status codes, and execution speeds.
