@@ -1,12 +1,19 @@
 import os
 import sqlalchemy.exc
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from google.api_core.exceptions import GoogleAPICallError
 from app.api.v1 import v1_router
 from app.services.pubsub_worker import pubsub_worker
 from app.core.logger import log_execution_time_middleware
+
+# Load the keys from your local .env file into the system environment
+load_dotenv()
+
+# The Gemini SDK will now automatically look for this exact environment variable name:
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
 # Define the server lifespan context controller to manage asynchronous hardware hooks cleanly
