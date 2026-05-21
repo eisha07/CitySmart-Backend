@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+from google.oauth2 import service_account
 from google.cloud import pubsub_v1
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -30,7 +31,16 @@ class CloudPubSubWorkerLoop:
     @property
     def subscriber(self):
         if self._subscriber is None:
-            self._subscriber = pubsub_v1.SubscriberClient()
+            sa_json_str = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+            if sa_json_str:
+                info = json.loads(sa_json_str)
+                credentials = service_account.Credentials.from_service_account_info(
+                    info
+                )
+                self._subscriber = pubsub_v1.SubscriberClient(credentials=credentials)
+            else:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "temp_sa_key.json"
+                self._subscriber = pubsub_v1.SubscriberClient()
         return self._subscriber
 
     @property
