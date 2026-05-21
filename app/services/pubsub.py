@@ -1,4 +1,5 @@
 import asyncio
+import os
 from google.cloud import pubsub_v1
 from app.core.config import settings
 
@@ -12,6 +13,10 @@ class PubSubService:
     @property
     def publisher(self):
         if self._publisher is None:
+            if os.getenv("ENVIRONMENT") == "local":
+                os.environ["PUBSUB_EMULATOR_HOST"] = "localhost:8085"
+            else:
+                os.environ.pop("PUBSUB_EMULATOR_HOST", None)
             self._publisher = pubsub_v1.PublisherClient()
         return self._publisher
 

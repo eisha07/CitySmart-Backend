@@ -31,6 +31,11 @@ class CloudPubSubWorkerLoop:
     @property
     def subscriber(self):
         if self._subscriber is None:
+            if os.getenv("ENVIRONMENT") == "local":
+                os.environ["PUBSUB_EMULATOR_HOST"] = "localhost:8085"
+            else:
+                os.environ.pop("PUBSUB_EMULATOR_HOST", None)
+
             sa_json_str = os.environ.get("GOOGLE_CREDENTIALS_JSON")
             if sa_json_str:
                 info = json.loads(sa_json_str)
