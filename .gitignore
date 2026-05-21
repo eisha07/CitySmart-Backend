@@ -7,3 +7,5 @@ __pycache__/
 venv/
 local.properties
 !vercel.json
+.vercel
+temp_sa_key.json
