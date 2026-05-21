@@ -10,11 +10,18 @@ class CloudStorageService:
         self.project = settings.GCP_PROJECT_ID
         self.bucket_name = f"urban-unstructured-inputs-bucket-{self.project}"
         self._client = None
+        self.local_mode = os.getenv("ENVIRONMENT") == "local"
 
     @property
     def client(self):
         if self._client is None:
-            self._client = storage.Client(project=self.project)
+            if self.local_mode:
+                # Local mode uses filesystem-based mock storage instead of live GCS.
+                self._client = storage.Client(project=self.project)
+            else:
+                # Ensure production does not accidentally use a local emulator.
+                os.environ.pop("STORAGE_EMULATOR_HOST", None)
+                self._client = storage.Client(project=self.project)
         return self._client
 
     async def upload_text_log(
@@ -24,6 +31,16 @@ class CloudStorageService:
         Asynchronously streams text contents up into a designated GCS blob pathway
         by wrapping the blocking client execution in a thread pool executor.
         """
+        if self.local_mode:
+            local_dir = "app/static/assets/logs"
+            os.makedirs(local_dir, exist_ok=True)
+            safe_filename = destination_blob_name.replace("/", "_")
+            local_path = os.path.join(local_dir, safe_filename)
+            with open(local_path, "w", encoding="utf-8") as f:
+                f.write(text_content)
+            print(f"🟡 Local GCS mock saved: '{local_path}'")
+            return f"/static/assets/logs/{safe_filename}"
+
         try:
             loop = asyncio.get_running_loop()
 

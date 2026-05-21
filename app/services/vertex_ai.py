@@ -1,3 +1,4 @@
+import os
 import asyncio
 from typing import List
 from google.cloud import aiplatform
@@ -9,14 +10,19 @@ class VertexEmbeddingService:
     def __init__(self):
         self.project = settings.GCP_PROJECT_ID
         self.location = settings.GCP_REGION
-        # Initialize the structural underlying Vertex AI platform context
-        aiplatform.init(project=self.project, location=self.location)
+        self.local_mode = os.getenv("ENVIRONMENT") == "local"
         self.model_name = "text-embedding-004"
         self._model = None
+
+        if not self.local_mode:
+            # Initialize the production Vertex AI context only outside local mode.
+            aiplatform.init(project=self.project, location=self.location)
 
     @property
     def model(self):
         """Lazy load the foundation embedding model instance safely."""
+        if self.local_mode:
+            return None
         if self._model is None:
             self._model = TextEmbeddingModel.from_pretrained(self.model_name)
         return self._model
@@ -28,6 +34,12 @@ class VertexEmbeddingService:
         """
         if not texts:
             return []
+
+        if self.local_mode:
+            print(
+                "🟡 Vertex AI local mock enabled: returning placeholder embedding vectors."
+            )
+            return [[0.0] * 768 for _ in texts]
 
         try:
             # Offload the blocking synchronous network call to an asynchronous executor thread
