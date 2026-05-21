@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - GEMINI_API_KEY
+    # Use an external env file only in local development. Do not commit secrets.
+    # env_file:
+    #   - .env
