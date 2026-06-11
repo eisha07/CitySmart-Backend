@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,7 +23,6 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -29,17 +30,22 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
-import edu.skku.cs.citysmart.domain.GeoJsonFeature
-import edu.skku.cs.citysmart.domain.GeometryData
+import com.google.gson.JsonElement
+import edu.skku.cs.citysmart.domain.PersonaMetadata
 import edu.skku.cs.citysmart.domain.SpatialTelemetryCollection
-import edu.skku.cs.citysmart.domain.TelemetryProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * UPDATED: Core Map Engine
+ * - Now renders only ONE exact proposal pin derived from the prompt.
+ * - Clusters all "Activated Agents" around that intervention zone.
+ */
 @Composable
 fun CoreSpatialCanvas(
     telemetry: SpatialTelemetryCollection,
+    agents: List<PersonaMetadata> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -49,20 +55,72 @@ fun CoreSpatialCanvas(
     var searchQuery by remember { mutableStateOf("") }
 
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(LatLng(33.6844, 73.0479), 14.5f)
+        position = CameraPosition.fromLatLngZoom(LatLng(33.70, 73.05), 14.5f)
     }
 
-    // --- AUTO-CENTER ON NEW TELEMETRY ---
-    LaunchedEffect(telemetry) {
-        if (telemetry.features.isNotEmpty()) {
-            val firstFeature = telemetry.features.first()
-            val coords = firstFeature.geometry.coordinates.firstOrNull()
-            if (coords != null && coords.size >= 2) {
-                val newLocation = LatLng(coords[1], coords[0])
-                cameraPositionState.animate(
-                    CameraUpdateFactory.newLatLngZoom(newLocation, 15f),
-                    1500
-                )
+    // Resolver for Agent Details
+    fun resolveAgentDisplayInfo(feature: edu.skku.cs.citysmart.domain.GeoJsonFeature): Pair<String, String> {
+        val props = feature.properties
+        val detailedPersona = agents.find {
+            it.name.equals(props.agentName, ignoreCase = true) ||
+                    it.name.equals(props.agentId, ignoreCase = true) ||
+                    props.agentProfile.lowercase().contains(it.name.lowercase())
+        }
+        val displayName = detailedPersona?.name ?: props.agentName ?: props.agentId.ifBlank { "Simulation Agent" }
+        val displaySnippet = buildString {
+            val demographics = detailedPersona?.demographics ?: props.demographics
+            if (!demographics.isNullOrBlank()) append("$demographics | ")
+            val bio = detailedPersona?.shortDescription?.split(".")?.firstOrNull() ?:
+            props.agentRole ?: props.agentProfile.replace("_", " ").uppercase()
+            append(bio)
+        }
+        return displayName to displaySnippet
+    }
+
+    fun getFirstCoord(coordinates: JsonElement): LatLng? {
+        return try {
+            val arr = coordinates.asJsonArray
+            if (arr.size() == 0) return null
+            if (arr[0].isJsonPrimitive) LatLng(arr[1].asDouble, arr[0].asDouble)
+            else {
+                val firstPoint = arr[0].asJsonArray
+                LatLng(firstPoint[1].asDouble, firstPoint[0].asDouble)
+            }
+        } catch (e: Exception) { null }
+    }
+
+    // Grouping Telemetry: Identify the ONE primary site and the Agentics
+    val mapState = remember(telemetry) {
+        val allSites = telemetry.features.filter {
+            val p = it.properties.agentProfile.lowercase()
+            !p.contains("commuter") && !p.contains("driver") && !p.contains("agent") &&
+            !p.contains("shopkeeper") && !p.contains("resident") && !p.contains("friction")
+        }
+
+        // Find the ONE primary location (e.g., infrastructure node or first item)
+        val primaryProposal = allSites.find {
+            val p = it.properties.agentProfile.lowercase()
+            p.contains("infrastructure") || p.contains("node") || p.contains("terminal")
+        } ?: allSites.firstOrNull()
+
+        val agentics = telemetry.features.filter {
+            val p = it.properties.agentProfile.lowercase()
+            p.contains("commuter") || p.contains("driver") || p.contains("agent") ||
+            p.contains("shopkeeper") || p.contains("resident")
+        }
+
+        val frictions = telemetry.features.filter {
+            it.properties.frictionIntensity > 1.3f || it.properties.agentProfile.lowercase().contains("friction")
+        }
+
+        Triple(primaryProposal, agentics, frictions)
+    }
+
+    // Center camera on the Primary Proposal Pin
+    LaunchedEffect(mapState.first) {
+        mapState.first?.let { feature ->
+            getFirstCoord(feature.geometry.coordinates)?.let { newLocation ->
+                cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(newLocation, 16.5f), 1500)
             }
         }
     }
@@ -73,38 +131,16 @@ fun CoreSpatialCanvas(
             coroutineScope.launch {
                 try {
                     val geocoder = Geocoder(context)
-                    val addresses = withContext(Dispatchers.IO) {
-                        @Suppress("DEPRECATION")
-                        geocoder.getFromLocationName(searchQuery, 1)
-                    }
+                    val addresses = withContext(Dispatchers.IO) { geocoder.getFromLocationName(searchQuery, 1) }
                     if (!addresses.isNullOrEmpty()) {
                         val address = addresses[0]
-                        val targetLatLng = LatLng(address.latitude, address.longitude)
-                        cameraPositionState.animate(
-                            CameraUpdateFactory.newLatLngZoom(targetLatLng, 16f),
-                            1000
-                        )
+                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(LatLng(address.latitude, address.longitude), 17f), 1000)
                     }
                 } catch (e: Exception) {
                     Toast.makeText(context, "Search Error", Toast.LENGTH_SHORT).show()
                 }
             }
         }
-    }
-
-    // --- DATA TRACKING FOR DYNAMIC LEGEND ---
-    val activeProfiles = remember(telemetry) {
-        val set = mutableSetOf<String>()
-        telemetry.features.forEach { 
-            if (it.properties.agentProfile == "proposed_infrastructure") {
-                set.add("PROPOSED")
-            } else if (it.properties.frictionIntensity > 1.3f) {
-                set.add("FRICTION")
-            } else {
-                set.add(it.properties.agentProfile)
-            }
-        }
-        set
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -116,69 +152,85 @@ fun CoreSpatialCanvas(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState,
-                properties = MapProperties(
-                    isTrafficEnabled = true,
-                    mapStyleOptions = null 
-                ),
+                properties = MapProperties(isTrafficEnabled = true),
                 uiSettings = MapUiSettings(zoomControlsEnabled = false, compassEnabled = true)
             ) {
-                telemetry.features.forEach { feature ->
-                    val coordsData = feature.geometry.coordinates
-                    val profile = feature.properties.agentProfile
-                    
-                    val color = when (profile) {
-                        "proposed_infrastructure" -> Color.White
-                        "female_commuter" -> Color(0xFFFF00FF)
-                        "qingqi_driver" -> Color(0xFF00FFFF)
-                        else -> if (feature.properties.frictionIntensity > 1.3f) Color.Red else Color(0xFF00FF00)
+                val (primarySite, agentics, frictions) = mapState
+
+                // 1. RENDER ONLY THE ONE EXACT PROPOSAL PIN
+                primarySite?.let { feature ->
+                    val pinLocation = getFirstCoord(feature.geometry.coordinates)
+                    if (pinLocation != null) {
+                        Marker(
+                            state = MarkerState(position = pinLocation),
+                            title = "PROPOSAL: ${feature.properties.agentName?.uppercase() ?: "INTERVENTION NODE"}",
+                            snippet = "The exact location identified from your prompt.",
+                            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED), // Red for the exact target
+                            zIndex = 100f
+                        )
+                    }
+                }
+
+                // 2. RENDER THE ACTIVATED AGENTICS IN THE AREA
+                agentics.forEach { feature ->
+                    val profile = feature.properties.agentProfile.lowercase()
+                    val (agentName, agentSnippet) = resolveAgentDisplayInfo(feature)
+
+                    val pinHue = when {
+                        profile.contains("commuter") -> BitmapDescriptorFactory.HUE_MAGENTA
+                        profile.contains("driver") -> BitmapDescriptorFactory.HUE_CYAN
+                        profile.contains("shopkeeper") -> BitmapDescriptorFactory.HUE_ORANGE
+                        profile.contains("resident") -> BitmapDescriptorFactory.HUE_VIOLET
+                        else -> BitmapDescriptorFactory.HUE_YELLOW
                     }
 
-                    if (profile == "proposed_infrastructure" && feature.geometry.type == "LineString") {
-                        val points = coordsData.map { LatLng(it[1], it[0]) }
-                        Polyline(
-                            points = points,
-                            color = Color.White,
-                            width = 12f,
-                            pattern = listOf(com.google.android.gms.maps.model.Dash(20f), com.google.android.gms.maps.model.Gap(10f)),
-                            zIndex = 10f
-                        )
-                        Polygon(
-                            points = points,
-                            fillColor = Color.White.copy(alpha = 0.15f),
-                            strokeWidth = 0f
-                        )
-                    } 
-                    else {
-                        val pinLocation = if (feature.geometry.type == "Point" && coordsData.isNotEmpty()) {
-                            LatLng(coordsData[0][1], coordsData[0][0])
-                        } else if (feature.geometry.type == "LineString" && coordsData.isNotEmpty()) {
-                            val mid = coordsData.size / 2
-                            LatLng(coordsData[mid][1], coordsData[mid][0])
-                        } else null
+                    if (feature.geometry.type == "LineString") {
+                        val points = try {
+                            feature.geometry.coordinates.asJsonArray.map {
+                                val p = it.asJsonArray
+                                LatLng(p[1].asDouble, p[0].asDouble)
+                            }
+                        } catch (e: Exception) { emptyList() }
 
-                        if (pinLocation != null) {
-                            Circle(
-                                center = pinLocation,
-                                radius = (50f * feature.properties.frictionIntensity).toDouble(),
-                                fillColor = color.copy(alpha = 0.25f),
-                                strokeColor = color.copy(alpha = 0.6f),
-                                strokeWidth = 3f
+                        if (points.isNotEmpty()) {
+                            Polyline(
+                                points = points, 
+                                color = if (profile.contains("commuter")) Color(0xFFFF00FF) else Color(0xFF00FFFF), 
+                                width = 6f, 
+                                zIndex = 5f
                             )
-
-                            // UPDATED: Show Agent Name in Title on pin click
                             Marker(
-                                state = MarkerState(position = pinLocation),
-                                title = feature.properties.agentName ?: feature.properties.agentId,
-                                snippet = "Profile: $profile",
-                                icon = BitmapDescriptorFactory.defaultMarker(
-                                    when (profile) {
-                                        "female_commuter" -> BitmapDescriptorFactory.HUE_MAGENTA
-                                        "qingqi_driver" -> BitmapDescriptorFactory.HUE_CYAN
-                                        else -> if (feature.properties.frictionIntensity > 1.3f) BitmapDescriptorFactory.HUE_RED else BitmapDescriptorFactory.HUE_GREEN
-                                    }
-                                )
+                                state = MarkerState(position = points.first()),
+                                title = agentName,
+                                snippet = agentSnippet,
+                                icon = BitmapDescriptorFactory.defaultMarker(pinHue)
                             )
                         }
+                    } else {
+                        val pinLocation = getFirstCoord(feature.geometry.coordinates)
+                        if (pinLocation != null) {
+                            Marker(
+                                state = MarkerState(position = pinLocation),
+                                title = agentName,
+                                snippet = agentSnippet,
+                                icon = BitmapDescriptorFactory.defaultMarker(pinHue),
+                                zIndex = 15f
+                            )
+                        }
+                    }
+                }
+
+                // 3. Render Friction Zones as subtle indicators
+                frictions.forEach { feature ->
+                    val pinLocation = getFirstCoord(feature.geometry.coordinates)
+                    if (pinLocation != null) {
+                        Circle(
+                            center = pinLocation,
+                            radius = (40f * feature.properties.frictionIntensity).toDouble(),
+                            fillColor = Color.Red.copy(alpha = 0.15f),
+                            strokeColor = Color.Red.copy(alpha = 0.4f),
+                            strokeWidth = 2f
+                        )
                     }
                 }
             }
@@ -205,7 +257,7 @@ fun CoreSpatialCanvas(
             singleLine = true
         )
 
-        // --- DYNAMIC LEGEND OVERLAY ---
+        // --- DYNAMIC TELEMETRY KEY (LEGEND) ---
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -213,24 +265,12 @@ fun CoreSpatialCanvas(
                 .background(Color(0xCC000000), RoundedCornerShape(8.dp))
                 .padding(12.dp)
         ) {
-            Text("ACTIVE TELEMETRY KEY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("TELEMETRY STATUS", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            
-            if (activeProfiles.contains("PROPOSED")) {
-                LegendItem(Color.White, "PROPOSED INFRASTRUCTURE")
-            }
-            if (activeProfiles.contains("FRICTION")) {
-                LegendItem(Color.Red, "CRITICAL FRICTION ZONE")
-            }
-            if (activeProfiles.contains("female_commuter")) {
-                LegendItem(Color(0xFFFF00FF), "VULNERABLE COMMUTER")
-            }
-            if (activeProfiles.contains("qingqi_driver")) {
-                LegendItem(Color(0xFF00FFFF), "TRANSIT OPERATOR")
-            }
-            if (activeProfiles.isEmpty()) {
-                Text("SCANNING FOR AGENTS...", color = Color.DarkGray, fontSize = 8.sp)
-            }
+            LegendItem(Color.Red, "EXACT PROPOSAL LOCATION")
+            LegendItem(Color(0xFFFF00FF), "ACTIVATED AGENTICS")
+            LegendItem(Color(0xFF00FFFF), "TRANSIT AGENTICS")
+            LegendItem(Color.Red.copy(alpha = 0.4f), "CONFLICT ZONES")
         }
     }
 }
@@ -238,8 +278,8 @@ fun CoreSpatialCanvas(
 @Composable
 fun LegendItem(color: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-        Box(modifier = Modifier.size(12.dp).background(color, RoundedCornerShape(2.dp)))
+        Box(modifier = Modifier.size(10.dp).background(color, RoundedCornerShape(2.dp)))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = label, color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+        Text(text = label.uppercase(), color = Color.LightGray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
     }
 }

@@ -1,5 +1,6 @@
 package edu.skku.cs.citysmart.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -8,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,12 +23,13 @@ import androidx.compose.ui.unit.sp
 import edu.skku.cs.citysmart.domain.BlueprintRevision
 
 /**
- * Updated Blueprint Carousel: Displays all policy elements, showing feasibility and amendments.
- * Features the topic at the head and agent deliberations underneath.
+ * Updated Blueprint Carousel: Displays all policy elements.
+ * Now includes interaction to allow the user to "Actively Participate" by amending policies.
  */
 @Composable
 fun BlueprintRevisionCarousel(
     revisions: List<BlueprintRevision>,
+    onAmend: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     if (revisions.isEmpty()) {
@@ -44,15 +46,17 @@ fun BlueprintRevisionCarousel(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Massive thin number header to match Analytics theme
+        // Massive thin number header
         Text(
-            text = revisions.size.toString(),
+            text = String.format("%02d", revisions.size),
             style = MaterialTheme.typography.displayLarge,
+            color = Color.White,
             modifier = Modifier.padding(top = 24.dp)
         )
         Text(
-            text = "PROPOSAL COMPONENT FEASIBILITY",
+            text = "ACTIVE POLICY DELIBERATIONS",
             style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.7f),
             modifier = Modifier.padding(bottom = 32.dp)
         )
 
@@ -62,7 +66,15 @@ fun BlueprintRevisionCarousel(
             pageSpacing = 16.dp,
             modifier = Modifier.weight(1f)
         ) { page ->
-            BlueprintPolicyCard(revision = revisions[page])
+            val revision = revisions[page]
+            BlueprintPolicyCard(
+                revision = revision,
+                onAmend = { suggestion -> 
+                    revision.revisionId?.let { id ->
+                        onAmend(id, suggestion)
+                    }
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -76,11 +88,11 @@ fun BlueprintRevisionCarousel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(revisions.size) { iteration ->
-                val color = if (pagerState.currentPage == iteration) Color.White else Color.White.copy(alpha = 0.2f)
+                val color = if (pagerState.currentPage == iteration) Color(0xFF00E676) else Color.White.copy(alpha = 0.2f)
                 Box(
                     modifier = Modifier
                         .padding(4.dp)
-                        .size(if (pagerState.currentPage == iteration) 8.dp else 6.dp)
+                        .size(if (pagerState.currentPage == iteration) 10.dp else 6.dp)
                         .background(color, RoundedCornerShape(50))
                 )
             }
@@ -88,38 +100,79 @@ fun BlueprintRevisionCarousel(
     }
 }
 
-/**
- * Updated Card: Topic (Original Element) at the head, Amendments/Status below.
- * Shows both feasible and conflicting elements.
- */
 @Composable
-fun BlueprintPolicyCard(revision: BlueprintRevision) {
-    val isConflict = revision.feasibilityStatus == "CONFLICT"
-    val statusColor = when (revision.feasibilityStatus) {
+fun BlueprintPolicyCard(
+    revision: BlueprintRevision,
+    onAmend: (String) -> Unit
+) {
+    val status = revision.feasibilityStatus ?: "UNKNOWN"
+    val isConflict = status == "CONFLICT"
+    val statusColor = when (status) {
         "FEASIBLE" -> Color(0xFF00E676)
         "CONFLICT" -> Color(0xFFFF3D00)
-        "OPTIMAL" -> Color(0xFF00E5FF)
-        else -> Color.White.copy(alpha = 0.6f)
+        "OPTIMAL"  -> Color(0xFF00E5FF)
+        else       -> Color.White.copy(alpha = 0.6f)
+    }
+
+    var showAmendDialog by remember { mutableStateOf(false) }
+    var userSuggestion by remember { mutableStateOf("") }
+
+    if (showAmendDialog) {
+        AlertDialog(
+            onDismissRequest = { showAmendDialog = false },
+            containerColor = Color(0xFF161B22),
+            title = { Text("AMEND POLICY", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Suggest a fix for: ${revision.originalElement}", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = userSuggestion,
+                        onValueChange = { userSuggestion = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Enter engineering or social fix...") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF00E676)
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        onAmend(userSuggestion)
+                        showAmendDialog = false
+                        userSuggestion = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676))
+                ) {
+                    Text("SUBMIT", color = Color.Black)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAmendDialog = false }) {
+                    Text("CANCEL", color = Color.Gray)
+                }
+            }
+        )
     }
 
     GlassPanel(
-        modifier = Modifier
-            .fillMaxHeight(0.95f)
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxSize()
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.padding(2.dp).fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 1. TOPIC AT THE HEAD (The primary proposed element)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     text = revision.originalElement.uppercase(),
                     color = Color.White,
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
-                    lineHeight = 26.sp,
-                    letterSpacing = 0.5.sp
+                    lineHeight = 24.sp
                 )
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -131,7 +184,7 @@ fun BlueprintPolicyCard(revision: BlueprintRevision) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = revision.feasibilityStatus ?: "ANALYZING",
+                        text = status,
                         color = statusColor,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -139,63 +192,53 @@ fun BlueprintPolicyCard(revision: BlueprintRevision) {
                         letterSpacing = 1.5.sp
                     )
                 }
-            }
 
-            HorizontalDivider(color = Color.White.copy(alpha = 0.1f), thickness = 1.dp)
+                HorizontalDivider(color = Color.White.copy(alpha = 0.1f), thickness = 1.dp)
 
-            // 2. DELIBERATION & AMENDMENT UNDER
-            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                // Analysis from the neighbor chat agents
                 PolicySection(
-                    title = "NEIGHBOR CHAT DELIBERATION",
-                    content = if (revision.failureModeDetected != "None") revision.failureModeDetected else "Agents reached consensus: This element aligns with local transit behaviors and is verified as feasible for current infrastructure.",
+                    title = "AGENT DELIBERATION",
+                    content = if (revision.failureModeDetected != "None") revision.failureModeDetected else "Consensus verified: Aligns with local mobility patterns.",
                     icon = Icons.Default.Forum,
                     color = Color.White.copy(alpha = 0.6f)
                 )
 
-                // Proposed Amendment (Only shown if conflict exists)
-                if (isConflict && revision.amendedDesignFix != "None") {
+                if (revision.amendedDesignFix != "None") {
                     PolicySection(
-                        title = "PROPOSED AMENDMENT",
+                        title = if (revision.amendedDesignFix.startsWith("USER")) "USER INPUT ACTIVE" else "PROPOSED AI FIX",
                         content = revision.amendedDesignFix,
-                        icon = Icons.Default.AutoFixHigh,
-                        color = Color(0xFF00E676)
+                        icon = if (revision.amendedDesignFix.startsWith("USER")) Icons.Default.Person else Icons.Default.AutoFixHigh,
+                        color = if (revision.amendedDesignFix.startsWith("USER")) Color(0xFF00E5FF) else Color(0xFF00E676)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            // FEASIBILITY STATUS & SENTIMENT
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Column {
-                    Text(
-                        text = "AGENT SENTIMENT",
-                        color = Color.White.copy(alpha = 0.3f),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Text(
-                        text = revision.agentSentiment ?: "NEUTRAL",
-                        color = if (revision.agentSentiment == "POSITIVE") Color(0xFF00E676) else Color.White.copy(alpha = 0.7f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace
-                    )
+            // Interactive Button for active participation - only show if revisionId is not null
+            if (revision.revisionId != null) {
+                Button(
+                    onClick = { showAmendDialog = true },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isConflict) Color(0xFFFF3D00).copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
+                    ),
+                    border = BorderStroke(1.dp, if (isConflict) Color(0xFFFF3D00) else Color.White.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isConflict) Color.White else Color.White.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (isConflict) "OVERRIDE CONFLICT" else "MODIFY ELEMENT",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
-                
-                Text(
-                    text = if (isConflict) "ACTION_REQUIRED" else "ENGINEERING_VERIFIED",
-                    color = statusColor.copy(alpha = 0.4f),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
             }
         }
     }
@@ -206,66 +249,20 @@ fun PolicySection(
     title: String,
     content: String,
     icon: ImageVector,
-    color: Color,
-    strikethrough: Boolean = false
+    color: Color
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = icon, 
-                contentDescription = null, 
-                tint = color.copy(alpha = 0.8f), 
-                modifier = Modifier.size(14.dp)
-            )
+            Icon(icon, contentDescription = null, tint = color.copy(alpha = 0.8f), modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = title,
-                color = color,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.sp
-            )
+            Text(text = title, color = color, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
         }
         Text(
             text = content,
-            color = if (strikethrough) Color.White.copy(alpha = 0.4f) else Color.White,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Normal,
-            textDecoration = if (strikethrough) TextDecoration.LineThrough else null,
-            modifier = Modifier.padding(top = 8.dp),
-            lineHeight = 22.sp
+            color = Color.White,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 4.dp),
+            lineHeight = 20.sp
         )
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-fun PreviewBlueprintCarouselFull() {
-    val mockRevisions = listOf(
-        BlueprintRevision(
-            revisionId = "REV-001",
-            originalElement = "High-density concrete road dividers.",
-            failureModeDetected = "Agents Tariq and Aisha noted that these restrict turning for rickshaws, causing major gridlock in small lanes.",
-            amendedDesignFix = "Replace with flexible safety bollards at 1.5m intervals.",
-            feasibilityStatus = "CONFLICT",
-            agentSentiment = "NEGATIVE"
-        ),
-        BlueprintRevision(
-            revisionId = "REV-002",
-            originalElement = "Solar-powered smart bus stations.",
-            failureModeDetected = "None",
-            amendedDesignFix = "None",
-            feasibilityStatus = "FEASIBLE",
-            agentSentiment = "POSITIVE"
-        )
-    )
-
-    MaterialTheme {
-        Box(modifier = Modifier.background(Color.DarkGray)) {
-            BlueprintRevisionCarousel(revisions = mockRevisions)
-        }
     }
 }

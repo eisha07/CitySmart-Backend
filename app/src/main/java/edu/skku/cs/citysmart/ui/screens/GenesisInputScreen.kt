@@ -56,7 +56,7 @@ fun GenesisInputContent(
     var promptText by remember { mutableStateOf("") }
     
     // Memory for the Server IP (defaults to the active simulation server)
-    var serverIp by remember { mutableStateOf("https://citysmart-backend-1.onrender.com") }
+    var serverIp by remember { mutableStateOf("http://10.0.2.2:8000/") }
     var showSettings by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 

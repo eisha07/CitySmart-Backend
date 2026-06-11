@@ -29,7 +29,7 @@ This document certifies that **Antigravity**, the advanced autonomous AI agentic
 ### 🛡️ Phase 5: Production Hardening, Logging & Testing
 - Integrated centralized logging telemetry middleware trapping HTTP methods, endpoints, status codes, and execution speeds.
 - Injected database connection-pooling safeguards (`pool_recycle=1800` and `pool_timeout=30`) for high-concurrency Cloud SQL environments.
-- Implemented global FastAPI exception handlers trapping unhandled exceptions, database drops (`SQLAlchemyError`), and LLM gateway timeout calls (`GoogleAPICallError`).
+- Implemented global FastAPI exception handlers trapping unhandled exceptions, database drops (`SQLAlchemyError`), and LLM gateway timeout calls (`Google-CallError`).
 - Created a robust pytest suite (`tests/test_urban_pipeline.py`) that cleanly mocks external GCP APIs to run 100% green asynchronously.
 
 ---

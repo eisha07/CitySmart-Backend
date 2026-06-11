@@ -11,7 +11,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    private const val BASE_URL = "https://citysmart-backend-1.onrender.com/"
+    private const val BASE_URL = "http://10.0.2.2:8000/"
     private var currentBaseUrl = BASE_URL
 
     private var retrofit: Retrofit? = null

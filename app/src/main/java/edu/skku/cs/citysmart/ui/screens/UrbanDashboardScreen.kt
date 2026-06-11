@@ -29,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import edu.skku.cs.citysmart.domain.*
 import edu.skku.cs.citysmart.ui.components.*
+import edu.skku.cs.citysmart.ui.theme.CitySmartTheme
 import edu.skku.cs.citysmart.ui.theme.MidnightPurple
 import edu.skku.cs.citysmart.ui.theme.SoftViolet
 
@@ -171,6 +172,7 @@ fun PillItem(icon: ImageVector, title: String, value: String) {
 fun MainNavigationShell(
     state: UrbanSimulationState,
     telemetry: SpatialTelemetryCollection,
+    onAmendPolicy: (String, String) -> Unit = { _, _ -> },
     onResetAndNavigateBack: () -> Unit = {},
     onExitApp: () -> Unit = {}
 ) {
@@ -225,7 +227,7 @@ fun MainNavigationShell(
                 // TAB 1: Geographic Map
                 composable(NavScreen.Map.route) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        CoreSpatialCanvas(telemetry = telemetry)
+                        CoreSpatialCanvas(telemetry = telemetry, agents = state.activeAgents)
                     }
                 }
 
@@ -237,7 +239,10 @@ fun MainNavigationShell(
                 // TAB 3: Blueprint Carousel
                 composable(NavScreen.Blueprints.route) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        BlueprintRevisionCarousel(revisions = state.blueprintRevisions)
+                        BlueprintRevisionCarousel(
+                            revisions = state.blueprintRevisions,
+                            onAmend = onAmendPolicy
+                        )
                     }
                 }
 
@@ -250,8 +255,8 @@ fun MainNavigationShell(
 
                 // TAB 5: Agent Personas
                 composable(NavScreen.Personas.route) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("AGENT DIRECTORY ACTIVE", color = Color.White.copy(alpha = 0.5f))
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AgentRosterPanel(agents = state.activeAgents)
                     }
                 }
             }
@@ -293,6 +298,42 @@ fun OverhauledBottomNav(navController: NavHostController) {
                     }
                 }
             )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun OverhauledDashboardScreenPreview() {
+    val mockState = UrbanSimulationState(
+        projectId = "preview-123",
+        summaryVerdict = "PROPOSAL FEASIBILITY VERIFIED",
+        scores = FeasibilityScores(
+            socialAcceptance = 75f,
+            economicRoi = 65f,
+            politicalJustification = 80f
+        ),
+        liveDebateTicks = emptyList(),
+        blueprintRevisions = emptyList(),
+        summaryPoints = listOf(
+            "High social acceptance due to pedestrian focus.",
+            "Economic ROI within acceptable thresholds.",
+            "Strong political alignment with city goals."
+        )
+    )
+    CitySmartTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(MidnightPurple, SoftViolet),
+                        start = Offset(0f, 0f),
+                        end = Offset(1000f, 1000f)
+                    )
+                )
+        ) {
+            OverhauledDashboardScreen(state = mockState)
         }
     }
 }

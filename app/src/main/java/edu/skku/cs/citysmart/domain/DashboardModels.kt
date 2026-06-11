@@ -1,16 +1,17 @@
 /**
- * UPDATED: Added ProjectAmendmentRequest, ChatInterrogationRequest, ChatResponse,
- * ConceptRenderRequest, and ChatMessage models to match the new FastAPI backend specification.
+ * UPDATED: Added demographics field to PersonaMetadata to match user requirement for agent display.
  */
 package edu.skku.cs.citysmart.domain
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.JsonElement
 
 data class PersonaMetadata(
     @SerializedName("name")              val name: String,
     @SerializedName("icon_tag")          val iconTag: String = "👤",
     @SerializedName("short_description") val shortDescription: String,
-    @SerializedName("characteristics")   val characteristics: List<String>
+    @SerializedName("characteristics")   val characteristics: List<String> = emptyList(),
+    @SerializedName("demographics")      val demographics: String? = null
 )
 
 data class SpatialTelemetryCollection(
@@ -26,14 +27,16 @@ data class GeoJsonFeature(
 
 data class GeometryData(
     @SerializedName("type") val type: String,
-    @SerializedName("coordinates") val coordinates: List<List<Double>>
+    @SerializedName("coordinates") val coordinates: JsonElement 
 )
 data class TelemetryProperties(
     @SerializedName("profile") val agentProfile: String,
     @SerializedName("friction_intensity") val frictionIntensity: Float,
     @SerializedName("agent_id") val agentId: String = "",
     @SerializedName("lighting_vector_safety") val lightingSafety: String? = null,
-    @SerializedName("agent_name") val agentName: String? = null // 🚀 Added this! Nullable just in case the backend doesn't send it.
+    @SerializedName("agent_name") val agentName: String? = null,
+    @SerializedName("agent_role") val agentRole: String? = null,
+    @SerializedName("demographics") val demographics: String? = null
 ) {
     val profile: String get() = agentProfile
 }
@@ -50,12 +53,12 @@ data class LiveDebateTick(
 }
 
 data class BlueprintRevision(
-    @SerializedName("revision_id") val revisionId: String = "",
+    @SerializedName("revision_id") val revisionId: String? = "",
     @SerializedName("original_element") val originalElement: String,
     @SerializedName("failure_mode_detected") val failureModeDetected: String,
     @SerializedName("amended_design_fix") val amendedDesignFix: String,
     @SerializedName("feasibility_status") val feasibilityStatus: String = "UNKNOWN",
-    @SerializedName("agent_sentiment") val agentSentiment: String? = "NEUTRAL" // 🚀 Added this!
+    @SerializedName("agent_sentiment") val agentSentiment: String? = "NEUTRAL" 
 )
 
 data class FeasibilityScores(
@@ -72,6 +75,8 @@ data class UrbanSimulationState(
     @SerializedName("blueprint_revisions") val blueprintRevisions: List<BlueprintRevision>,
     @SerializedName("spatial_telemetry") val spatialTelemetry: SpatialTelemetryCollection? = null,
     @SerializedName("summary_points") val summaryPoints: List<String> = emptyList(),
+    @SerializedName("active_agents") val activeAgents: List<PersonaMetadata> = emptyList(),
+    @SerializedName("personas") val personas: List<PersonaMetadata> = emptyList()
 )
 
 // NEW MODELS FOR FASTAPI SPECIFICATION

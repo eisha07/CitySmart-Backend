@@ -53,6 +53,9 @@ class MainActivity : ComponentActivity() {
                             MainNavigationShell(
                                 state = state!!,
                                 telemetry = telemetry!!,
+                                onAmendPolicy = { id, suggestion ->
+                                    viewModel.amendPolicy(id, suggestion)
+                                },
                                 onResetAndNavigateBack = {
                                     viewModel.resetState()
                                     rootNavController.navigate("genesis_input") {
