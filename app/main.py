@@ -8,6 +8,7 @@ from google.api_core.exceptions import GoogleAPICallError
 from app.api.v1 import v1_router
 from app.services.pubsub_worker import pubsub_worker
 from app.core.logger import log_execution_time_middleware
+from app.core.config import settings
 
 # Load the keys from your local .env file into the system environment
 load_dotenv()
@@ -20,13 +21,18 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 @asynccontextmanager
 async def app_lifespan_handler(app: FastAPI):
     # --- Startup Event Sequence ---
-    print("✨ Core Server Initialization Sequence Booting up...")
+    print(f"✨ Core Server Initialization Sequence Booting up [{settings.ENVIRONMENT}]...")
 
     # Securely set GCP application environment key references
     cred_file = "sinuous-branch-411610-d4e78e429c6c.json"
     if not os.path.exists(cred_file):
         cred_file = "temp_sa_key.json"
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_file
+
+    if os.path.exists(cred_file):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath(cred_file)
+        print(f"🛡️  Authenticated via Service Account: {cred_file}")
+    elif settings.ENVIRONMENT == "production":
+        print("⚠️  Warning: No Service Account JSON found. Relying on platform-managed ADC.")
 
     # Fire up our non-blocking Pub/Sub worker queue streaming listener
     pubsub_stream = pubsub_worker.start_listening()
@@ -91,6 +97,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Route registration tree
 app.include_router(v1_router, prefix="/api/v1")
+app.include_router(v1_router, prefix="")  # Register at root for compatibility with unversioned client requests
 
 
 @app.get("/health", tags=["System Diagnostics"])

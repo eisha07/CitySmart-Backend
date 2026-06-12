@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     GCP_REGION: str = "asia-northeast3"
     DATABASE_URL: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
+    ENVIRONMENT: str = "local"
 
     class Config:
         env_file = ".env"

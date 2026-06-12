@@ -10,17 +10,25 @@ class CloudStorageService:
         self.project = settings.GCP_PROJECT_ID
         self.bucket_name = f"urban-unstructured-inputs-bucket-{self.project}"
         self._client = None
-        self.local_mode = os.getenv("ENVIRONMENT") == "local"
+        self.local_mode = settings.ENVIRONMENT != "production"
 
     @property
     def client(self):
         if self._client is None:
-            if self.local_mode:
-                # Local mode uses filesystem-based mock storage instead of live GCS.
+            if settings.ENVIRONMENT == "production":
+                # Ensure production does not accidentally use ANY local emulator.
+                emulators = [
+                    "STORAGE_EMULATOR_HOST",
+                    "PUBSUB_EMULATOR_HOST",
+                    "FIRESTORE_EMULATOR_HOST",
+                    "FIREBASE_AUTH_EMULATOR_HOST",
+                    "BIGTABLE_EMULATOR_HOST",
+                ]
+                for env_var in emulators:
+                    os.environ.pop(env_var, None)
                 self._client = storage.Client(project=self.project)
             else:
-                # Ensure production does not accidentally use a local emulator.
-                os.environ.pop("STORAGE_EMULATOR_HOST", None)
+                # Local or staging might use emulators if explicitly set
                 self._client = storage.Client(project=self.project)
         return self._client
 

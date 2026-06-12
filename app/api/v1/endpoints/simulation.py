@@ -128,14 +128,14 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
         # Dict[str, Any] fields (spatial_telemetry) that Pydantic serialises
         # with `additionalProperties`, which the Gemini API rejects (INVALID_ARGUMENT).
         # We enrich the parsed response with those fields manually below.
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
+        response = await simulation_engine._generate_with_fallback(
             contents=simulation_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=GeminiSimulationSchema,
                 temperature=0.7,
             ),
+            model_override="gemini-2.5-flash",
         )
 
         data = json.loads(response.text.strip())
@@ -226,6 +226,8 @@ async def get_simulation_state(project_id: str, db: AsyncSession = Depends(get_d
         # Re-validate the fully enriched payload against the Pydantic schema before returning
         return SimulationStateResponse(**data)
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"🔴 Fatal Simulation Failure: {e}")
         raise HTTPException(

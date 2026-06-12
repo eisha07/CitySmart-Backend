@@ -1,11 +1,51 @@
+# Python
 node_modules/
 __pycache__/
 .env
-*.pyc
+*.py[cod]
+*$py.class
 .pytest_cache/
-*.json
 venv/
-local.properties
-!vercel.json
-.vercel
 temp_sa_key.json
+
+# Android / Gradle
+.gradle/
+gradle.properties
+build/
+app/build/
+local.properties
+*.iml
+.kotlin/
+
+# IDE - IntelliJ / Android Studio
+.idea/
+*.iws
+*.ipr
+out/
+
+# macOS
+.DS_Store
+
+# Web / Vercel
+.vercel
+*.json
+!vercel.json
+!google-services.json
+
+# Project Specific Logs & Tools
+antigravity_system_logs*/
+antigravity_submission_logs*/
+antigravity_system_logs.zip
+antigravity_submission_logs.zip
+ANTIGRAVITY_LOG.md
+.antigravity/
+cloud-sql-proxy
+model_results.txt
+app/static/assets/logs/
+*.log
+*.pb
+*.pbtxt
+
+# Keys and Secrets
+*.keystore
+!debug.keystore

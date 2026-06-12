@@ -1,24 +1,19 @@
+/**
+ * UPDATED: Added demographics field to PersonaMetadata to match user requirement for agent display.
+ */
 package edu.skku.cs.citysmart.domain
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.JsonElement
 
-// ── Prompt 2: Persona Metadata ────────────────────────────────────────────────
-/**
- * Rich profile object for each active agent persona.
- * Drives the (ⓘ) icon popup modal in the Jetpack Compose agent list.
- * Maps 1-to-1 with the backend PersonaMetadata Pydantic schema.
- */
 data class PersonaMetadata(
     @SerializedName("name")              val name: String,
-    @SerializedName("icon_tag")          val iconTag: String = "\uD83D\uDC64",  // 👤 fallback
+    @SerializedName("icon_tag")          val iconTag: String = "👤",
     @SerializedName("short_description") val shortDescription: String,
-    @SerializedName("characteristics")   val characteristics: List<String>
+    @SerializedName("characteristics")   val characteristics: List<String> = emptyList(),
+    @SerializedName("demographics")      val demographics: String? = null
 )
 
-/**
- * Steps 5 & 6: GEOSPATIAL & MAP DATA MODELS
- * Captures coordinates and custom telemetry friction intensities for neon heatmaps.
- */
 data class SpatialTelemetryCollection(
     @SerializedName("type") val type: String = "FeatureCollection",
     @SerializedName("features") val features: List<GeoJsonFeature>
@@ -31,69 +26,94 @@ data class GeoJsonFeature(
 )
 
 data class GeometryData(
-    @SerializedName("type") val type: String, // "LineString" or "Point"
-    @SerializedName("coordinates") val coordinates: List<List<Double>> // Pairs of [Longitude, Latitude]
+    @SerializedName("type") val type: String,
+    @SerializedName("coordinates") val coordinates: JsonElement 
 )
-
 data class TelemetryProperties(
-    @SerializedName("agent_profile") val agentProfile: String, // "female_commuter" or "qingqi_driver"
-    @SerializedName("friction_intensity") val frictionIntensity: Float // Scales from 0.00 to 1.99
-)
+    @SerializedName("profile") val agentProfile: String,
+    @SerializedName("friction_intensity") val frictionIntensity: Float,
+    @SerializedName("agent_id") val agentId: String = "",
+    @SerializedName("lighting_vector_safety") val lightingSafety: String? = null,
+    @SerializedName("agent_name") val agentName: String? = null,
+    @SerializedName("agent_role") val agentRole: String? = null,
+    @SerializedName("demographics") val demographics: String? = null
+) {
+    val profile: String get() = agentProfile
+}
 
-/**
- * Step 7: LIVE-DEBATE TICKER DATA MODELS
- * Feeds the concurrent split-screen stream for Aisha and Tariq.
- */
 data class LiveDebateTick(
     @SerializedName("timestamp") val timestamp: String,
-    @SerializedName("agent_name") val agentName: String,
-    @SerializedName("agent_profile") val agentProfile: String, // "female_commuter" or "qingqi_driver"
-    @SerializedName("message_text") val messageText: String,
-    @SerializedName("alert_level") val alertLevel: String // "INFO", "WARNING", "CRITICAL"
-)
+    @SerializedName("agent_name") val agentName: String? = "",
+    @SerializedName("agent_profile") val agentProfile: String?,
+    @SerializedName("message") val messageText: String?,
+    @SerializedName("log_level") val alertLevel: String?
+) {
+    val message: String? get() = messageText
+    val logLevel: String? get() = alertLevel
+}
 
-/**
- * Step 8: GENERATIVE BLUEPRINT REVISION DATA MODELS
- * Handles the structural "Before & After" schematic carousel details.
- */
 data class BlueprintRevision(
-    @SerializedName("revision_id") val revisionId: String,
+    @SerializedName("revision_id") val revisionId: String? = "",
     @SerializedName("original_element") val originalElement: String,
     @SerializedName("failure_mode_detected") val failureModeDetected: String,
-    @SerializedName("amended_design_fix") val amendedDesignFix: String
+    @SerializedName("amended_design_fix") val amendedDesignFix: String,
+    @SerializedName("feasibility_status") val feasibilityStatus: String = "UNKNOWN",
+    @SerializedName("agent_sentiment") val agentSentiment: String? = "NEUTRAL" 
 )
 
-/**
- * Step 9: ANALYTICAL SUMMARY & SCORECARD DATA MODELS
- * Captures the radial circular architectural progress bar values.
- */
 data class FeasibilityScores(
-    @SerializedName("social_acceptance") val socialAcceptance: Float,       // 0.0 to 100.0
-    @SerializedName("economic_roi") val economicRoi: Float,                 // 0.0 to 100.0
-    @SerializedName("political_justification") val politicalJustification: Float // 0.0 to 100.0
+    @SerializedName("social_impact_score") val socialAcceptance: Float,
+    @SerializedName("economic_viability_score") val economicRoi: Float,
+    @SerializedName("political_feasibility_score") val politicalJustification: Float
 )
 
-/**
- * OVERARCHING URBAN DASHBOARD MASTER STATE
- * The single master wrapper that unites every piece of the spec.
- *
- * Prompt 1: [summaryPoints] replaces [summaryVerdict] as the primary display field.
- *   Each element is one independent bullet rendered in a LazyColumn.
- * Prompt 2: [activeAgents] provides full PersonaMetadata for every active agent
- *   so the Compose (\u24d8) info-modal always has structured characteristic data.
- * All new fields are nullable / defaulted for backward compatibility.
- */
 data class UrbanSimulationState(
-    @SerializedName("project_id")        val projectId: String,
-    // Legacy single-string verdict — kept for backward compat
-    @SerializedName("summary_verdict")   val summaryVerdict: String? = null,
-    @SerializedName("scores")            val scores: FeasibilityScores? = null,
-    @SerializedName("live_debate_ticks") val liveDebateTicks: List<LiveDebateTick> = emptyList(),
-    @SerializedName("blueprint_revisions") val blueprintRevisions: List<BlueprintRevision> = emptyList(),
+    @SerializedName("project_id") val projectId: String,
+    @SerializedName("summary_verdict") val summaryVerdict: String,
+    @SerializedName("scores") val scores: FeasibilityScores,
+    @SerializedName("live_debate_ticks") val liveDebateTicks: List<LiveDebateTick>,
+    @SerializedName("blueprint_revisions") val blueprintRevisions: List<BlueprintRevision>,
+    @SerializedName("spatial_telemetry") val spatialTelemetry: SpatialTelemetryCollection? = null,
+    @SerializedName("summary_points") val summaryPoints: List<String> = emptyList(),
+    @SerializedName("active_agents") val activeAgents: List<PersonaMetadata> = emptyList(),
+    @SerializedName("personas") val personas: List<PersonaMetadata> = emptyList()
+)
 
-    // ── Prompt 1: Structured mediator bullet points ─────────────────────────
-    @SerializedName("summary_points")    val summaryPoints: List<String> = emptyList(),
+// NEW MODELS FOR FASTAPI SPECIFICATION
 
-    // ── Prompt 2: Rich persona metadata for agent info-modals ───────────────
-    @SerializedName("active_agents")     val activeAgents: List<PersonaMetadata>? = null
+data class ProjectAmendmentRequest(
+    @SerializedName("project_id") val projectId: String,
+    @SerializedName("version_tag") val versionTag: String,
+    @SerializedName("amended_proposal_text") val amendedProposalText: String
+)
+
+data class ChatMessage(
+    @SerializedName("role") val role: String,
+    @SerializedName("content") val content: String
+)
+
+data class ChatInterrogationRequest(
+    @SerializedName("project_id") val projectId: String,
+    @SerializedName("persona_system_instruction") val personaSystemInstruction: String,
+    @SerializedName("user_message") val userMessage: String,
+    @SerializedName("chat_history") val chatHistory: List<ChatMessage>
+)
+
+data class ChatResponse(
+    @SerializedName("reply") val reply: String
+)
+
+data class ConceptRenderRequest(
+    @SerializedName("project_id") val projectId: String,
+    @SerializedName("version_tag") val versionTag: String,
+    @SerializedName("design_element_description") val designElementDescription: String,
+    @SerializedName("environmental_context") val environmentalContext: String = "South Asian daylight context"
+)
+
+data class ConceptRenderResponse(
+    @SerializedName("project_id") val projectId: String,
+    @SerializedName("version_tag") val versionTag: String,
+    @SerializedName("element_rendered") val elementRendered: String,
+    @SerializedName("generated_image_url") val generatedImageUrl: String,
+    @SerializedName("revised_prompt_used") val revisedPromptUsed: String
 )

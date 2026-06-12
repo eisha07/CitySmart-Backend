@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.models.database import SimulationResultModel
 from app.services.agent_engine import simulation_engine
+from app.core.config import settings
 
 # Explicitly load project credentials and system parameters
 GCP_PROJECT_ID = "sinuous-branch-411610"
@@ -31,19 +32,13 @@ class CloudPubSubWorkerLoop:
     @property
     def subscriber(self):
         if self._subscriber is None:
-            if os.getenv("ENVIRONMENT") == "local":
-                os.environ["PUBSUB_EMULATOR_HOST"] = "localhost:8085"
-            else:
+            if settings.ENVIRONMENT == "production":
+                # Ensure production does not use ANY local emulator.
                 os.environ.pop("PUBSUB_EMULATOR_HOST", None)
-
-            sa_json_str = os.environ.get("GOOGLE_CREDENTIALS_JSON")
-            if sa_json_str:
-                info = json.loads(sa_json_str)
-                credentials = service_account.Credentials.from_service_account_info(
-                    info
-                )
-                self._subscriber = pubsub_v1.SubscriberClient(credentials=credentials)
+                self._subscriber = pubsub_v1.SubscriberClient()
             else:
+                if os.getenv("ENVIRONMENT") == "local":
+                    os.environ["PUBSUB_EMULATOR_HOST"] = "localhost:8085"
                 self._subscriber = pubsub_v1.SubscriberClient()
         return self._subscriber
 

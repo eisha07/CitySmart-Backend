@@ -1,11 +1,15 @@
 import json
 import os
 import re
+import logging
 from vertexai.generative_models import GenerativeModel, Content, Part
 from vertexai.preview.vision_models import ImageGenerationModel
 from google import genai
 from google.genai import types
 from app.core.config import settings
+
+# Suppress noisy warning and info logs from the Google GenAI SDK
+logging.getLogger("google_genai").setLevel(logging.ERROR)
 
 
 # ── Mediator Output Parser ────────────────────────────────────────────────────────
@@ -83,35 +87,70 @@ def parse_summary_points(raw_text: str) -> list[str]:
     return [text]
 
 
-class LazyGenAIClient:
-    def __init__(self):
-        self._client = None
-
-    @property
-    def client(self):
-        if self._client is None:
-            api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-            if api_key:
-                self._client = genai.Client(api_key=api_key)
-            else:
-                self._client = genai.Client(
-                    vertexai=True,
-                    project=settings.GCP_PROJECT_ID,
-                    location=settings.GCP_REGION,
-                )
-        return self._client
-
-    @property
-    def models(self):
-        return self.client.models
-
-
-client = LazyGenAIClient()
+from app.services.llm_client import client
 
 
 class UrbanAgentSimulationEngine:
     def __init__(self):
         self._imagen_model = None
+        self.primary_model = "gemini-2.5-flash"
+        self.fallback_models = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
+
+    async def _generate_with_fallback(self, contents, config=None, model_override=None):
+        """Helper to manage model generation with automatic retries and fallback logic."""
+        import asyncio
+        import random
+
+        # Build list of models to try
+        models_to_try = list(self.fallback_models)
+        if model_override:
+            if model_override in models_to_try:
+                # Reorder so model_override is first
+                idx = models_to_try.index(model_override)
+                models_to_try = [model_override] + models_to_try[:idx] + models_to_try[idx+1:]
+            else:
+                models_to_try = [model_override] + models_to_try
+
+        last_exception = None
+        for i, model in enumerate(models_to_try):
+            print(f"ℹ️ Attempting generation with model: {model}")
+            is_last_model = (i == len(models_to_try) - 1)
+            max_retries = 3
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    return await client.client.aio.models.generate_content(
+                        model=model,
+                        contents=contents,
+                        config=config,
+                    )
+                except Exception as e:
+                    last_exception = e
+                    err_msg = str(e)
+                    print(f"⚠️ Error with model {model} (attempt {attempt + 1}/{max_retries + 1}): {err_msg}")
+                    
+                    should_retry = False
+                    if attempt < max_retries:
+                        err_str = err_msg.lower()
+                        # If it's a permanent quota limit (limit: 0), never retry
+                        if "limit: 0" not in err_str and "limit:0" not in err_str:
+                            if is_last_model:
+                                # Last model: retry on any 429/503/etc.
+                                should_retry = any(kw in err_str for kw in ["429", "503", "resource_exhausted", "unavailable", "rate limit", "quota", "demand", "temporary", "overload"])
+                            else:
+                                # Not last model: retry on 503/unavailable, fallback immediately on 429
+                                should_retry = any(kw in err_str for kw in ["503", "unavailable", "overload", "demand", "temporary"])
+                    
+                    if should_retry:
+                        # Calculate backoff with jitter
+                        delay = (1.5 ** attempt) + random.uniform(0.1, 0.5)
+                        print(f"⏳ Transient error on {model}. Retrying in {delay:.2f}s...")
+                        await asyncio.sleep(delay)
+                    else:
+                        print(f"❌ Failed or encountered rate limit on {model}. Moving to fallback/next model...")
+                        break
+        # If we got here, all models in the fallback chain failed
+        raise last_exception
 
     @property
     def imagen_model(self):
@@ -136,8 +175,7 @@ class UrbanAgentSimulationEngine:
         
         OUTPUT FORMAT: You MUST return a valid, clean JSON list containing exactly 10 objects with the keys "name", "type", and "system_instruction". Do not add markdown code block backticks, explanations, or trailing commentary.
         """
-        response = await client.client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+        response = await self._generate_with_fallback(
             contents=discovery_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -158,8 +196,7 @@ class UrbanAgentSimulationEngine:
         {combined_context}
         Identify exactly 2 critical personal vulnerabilities, structural dangers, or operational constraints this layout forces onto your day-to-day survival.
         """
-        response = await client.client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+        response = await self._generate_with_fallback(
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -236,8 +273,7 @@ class UrbanAgentSimulationEngine:
             ]
         }}
         """
-        response = await client.client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+        response = await self._generate_with_fallback(
             contents=arbitration_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -266,8 +302,7 @@ class UrbanAgentSimulationEngine:
             )
         )
 
-        response = await client.client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+        response = await self._generate_with_fallback(
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -287,9 +322,9 @@ class UrbanAgentSimulationEngine:
         The output prompt must focus on architectural precision, urban layout clarity, street infrastructure, safety features, and realistic lighting. Avoid buzzwords like 'photorealistic' or 'stunning'.
         OUTPUT FORMAT: Return only the plain optimized prompt string. No markdown, no quotes.
         """
-        prompt_response = await client.client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+        prompt_response = await self._generate_with_fallback(
             contents=refinement_prompt,
+            model_override="gemini-2.5-flash",
         )
         optimized_prompt = prompt_response.text.strip()
 

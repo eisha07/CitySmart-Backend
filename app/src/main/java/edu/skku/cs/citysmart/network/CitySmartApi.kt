@@ -1,32 +1,43 @@
+/**
+ * UPDATED: Added interrogateAgent and renderConcept endpoints. 
+ * Migrated amendProposal to use the new ProjectAmendmentRequest model from the domain package.
+ */
 package edu.skku.cs.citysmart.network
 
 import edu.skku.cs.citysmart.domain.*
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 
-// 1. The exact JSON body expected for a NEW proposal
 data class IngestRequest(val user_prompt: String)
 
-// 2. The exact JSON body expected for an UPDATED proposal (for later)
-data class AmendRequest(
+data class IngestResponse(
+    val status: String,
+    val extracted_metadata: ExtractedMetadata
+)
+
+data class ExtractedMetadata(
     val project_id: String,
-    val version_tag: String,
-    val amended_proposal_text: String
+    val title: String
 )
 
 interface CitySmartApi {
-    @GET("/api/v1/simulation/state")
-    suspend fun getSimulationState(): UrbanSimulationState
+    // MATCHES: @router.get("/{project_id}/state")
+    @GET("simulation/{project_id}/state")
+    suspend fun getSimulationState(@Path("project_id") projectId: String): UrbanSimulationState
 
-    @GET("/api/v1/simulation/telemetry")
-    suspend fun getTelemetry(): SpatialTelemetryCollection
+    @POST("api/v1/projects/ingest")
+    suspend fun ingestProposal(@Body request: IngestRequest): IngestResponse
 
-    // 🚀 THE NEW GENESIS ENDPOINT
-    @POST("/api/v1/projects/ingest")
-    suspend fun ingestProposal(@Body request: IngestRequest): UrbanSimulationState
+    @POST("api/v1/projects/amend")
+    suspend fun amendProposal(@Body request: ProjectAmendmentRequest): UrbanSimulationState
 
-    // 🛠️ THE AMENDMENT ENDPOINT (Ready for when you build the edit feature!)
-    @POST("/api/v1/projects/amend")
-    suspend fun amendProposal(@Body request: AmendRequest): UrbanSimulationState
+    // MATCHES: @router.post("/chat")
+    @POST("simulation/chat")
+    suspend fun interrogateAgent(@Body request: ChatInterrogationRequest): ChatResponse
+
+    // MATCHES: @router.post("/render-concept")
+    @POST("simulation/render-concept")
+    suspend fun renderConcept(@Body request: ConceptRenderRequest): ConceptRenderResponse
 }

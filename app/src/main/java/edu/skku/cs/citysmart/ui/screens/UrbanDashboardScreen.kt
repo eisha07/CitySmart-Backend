@@ -1,22 +1,27 @@
 package edu.skku.cs.citysmart.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.Construction
-import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,115 +29,299 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import edu.skku.cs.citysmart.domain.*
 import edu.skku.cs.citysmart.ui.components.*
+import edu.skku.cs.citysmart.ui.theme.CitySmartTheme
+import edu.skku.cs.citysmart.ui.theme.MidnightPurple
+import edu.skku.cs.citysmart.ui.theme.SoftViolet
 
-// 1. Define our 5 separate screens and their icons
-sealed class NavScreen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    object Map       : NavScreen("map",      "Map",     Icons.Filled.LocationOn)
-    object Analytics : NavScreen("analytics","Scores",  Icons.Filled.Assessment)
-    object Blueprints: NavScreen("blueprints","Plans",  Icons.Filled.Construction)
-    object Comms     : NavScreen("comms",    "Feed",    Icons.Filled.Forum)
-    object Personas  : NavScreen("personas", "Agents",  Icons.Filled.Group)
+// 1. Unified Navigation: 5-tab system from main + polished icons
+sealed class NavScreen(val route: String, val title: String, val icon: ImageVector) {
+    object Map : NavScreen("map", "Map", Icons.Filled.LocationOn)
+    object Analytics : NavScreen("analytics", "Analytics", Icons.Filled.Assessment)
+    object Blueprints : NavScreen("blueprints", "Plans", Icons.Filled.Construction)
+    object Comms : NavScreen("comms", "Feed", Icons.Filled.Forum)
+    object Personas : NavScreen("personas", "Agents", Icons.Filled.Group)
 }
 
-/**
- * Bottom-navigation shell.  Five tabs: Map | Scores | Plans | Feed | Agents
- */
+@Composable
+fun OverhauledDashboardScreen(
+    state: UrbanSimulationState,
+    onBackToPrompt: () -> Unit = {}
+) {
+    val scrollState = rememberScrollState()
+
+    // Safely calculate aggregate score from feasibility pillars
+    val averageScore = remember(state.scores) {
+        state.scores?.let {
+            (it.socialAcceptance + it.economicRoi + it.politicalJustification) / 3f
+        } ?: 0f
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp)
+    ) {
+        // --- NEW: TOP NAVIGATION ROW ---
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "DASHBOARD",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.5f),
+                fontWeight = FontWeight.Bold
+            )
+            
+            // Explicit Back Button
+            TextButton(
+                onClick = onBackToPrompt,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF00E676))
+            ) {
+                Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("RETURN TO TERMINAL", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Massive dynamic aggregate score header
+        Text(
+            text = String.format("%.1f", averageScore),
+            style = MaterialTheme.typography.displayLarge,
+            color = Color.White,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+        Text(
+            text = "AGGREGATE FEASIBILITY INDEX",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
+        // --- RE-INTEGRATED FEASIBILITY GAUGES ---
+        state.scores?.let { scores ->
+            TriPillarGaugePanel(
+                scores = scores,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+        }
+
+        // Pill Menu Row for secondary metrics
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            item { PillItem(Icons.Default.Speed, "Traffic", "Low") }
+            item { PillItem(Icons.Default.Cloud, "Emission", "Med") }
+            item { PillItem(Icons.Default.Bolt, "Power", "High") }
+            item { PillItem(Icons.Default.WaterDrop, "Water", "Stable") }
+        }
+
+        // Card with overlapping 3D asset simulation
+        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+            Soft3DCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .height(180.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "URBAN CONNECTIVITY",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Agent deliberations indicate that current modifications support ${state.scores?.socialAcceptance?.toInt() ?: 0}% of pedestrian and transit flow without critical bottlenecks.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .size(100.dp)
+                    .offset(x = 20.dp, y = (-10).dp)
+                    .align(Alignment.TopEnd)
+                    .zIndex(1f),
+                color = Color.Transparent
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationCity,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier.size(100.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        ArbitratorVerdictTerminal(
+            summaryPoints = state.summaryPoints,
+            headline = state.summaryVerdict
+        )
+
+        Spacer(modifier = Modifier.height(100.dp))
+    }
+}
+
+@Composable
+fun PillItem(icon: ImageVector, title: String, value: String) {
+    GlassPanel(
+        modifier = Modifier
+            .width(90.dp)
+            .height(140.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(title, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
+            Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.White)
+        }
+    }
+}
+
 @Composable
 fun MainNavigationShell(
     state: UrbanSimulationState,
-    telemetry: SpatialTelemetryCollection
+    telemetry: SpatialTelemetryCollection,
+    userPrompt: String = "",
+    onAmendPolicy: (String, String) -> Unit = { _, _ -> },
+    onResetAndNavigateBack: () -> Unit = {},
+    onExitApp: () -> Unit = {}
 ) {
     val navController = rememberNavController()
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    BackHandler { showExitDialog = true }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            containerColor = MidnightPurple,
+            title = {
+                Text("TERMINATE SESSION?", color = Color.White, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Do you want to return or exit?", color = Color.White.copy(alpha = 0.7f))
+            },
+            confirmButton = {
+                TextButton(onClick = { showExitDialog = false; onResetAndNavigateBack() }) {
+                    Text("NEW POLICY", color = Color(0xFF00E676))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false; onExitApp() }) {
+                    Text("EXIT APP", color = Color.Gray)
+                }
+            }
+        )
+    }
 
     Scaffold(
-        bottomBar = { DashboardBottomNav(navController) },
-        containerColor = Color(0xFF050505)
+        bottomBar = { OverhauledBottomNav(navController) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onResetAndNavigateBack,
+                containerColor = Color(0xFF00E676),
+                contentColor = Color.Black,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("NEW PROMPT", fontWeight = FontWeight.Bold) }
+            )
+        },
+        containerColor = Color.Transparent
     ) { paddingValues ->
-
-        NavHost(
-            navController = navController,
-            startDestination = NavScreen.Map.route,
-            modifier = Modifier.padding(paddingValues)
-        ) {
-            // TAB 1: Geographic Map
-            composable(NavScreen.Map.route) {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    CoreSpatialCanvas(telemetry = telemetry)
-                }
-            }
-
-            // TAB 2: Analytics & Gauges
-            composable(NavScreen.Analytics.route) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                ) {
-                    // ── Prompt 1: Structured bullet verdict ──────────────────
-                    ArbitratorVerdictTerminal(
-                        summaryPoints = state.summaryPoints,
-                        headline      = state.summaryVerdict
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(MidnightPurple, SoftViolet),
+                        start = Offset(0f, 0f),
+                        end = Offset(1000f, 1000f)
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    // Feasibility score gauges (nullable-safe)
-                    state.scores?.let { TriPillarGaugePanel(scores = it) }
-                }
-            }
-
-            // TAB 3: Architecture Carousel
-            composable(NavScreen.Blueprints.route) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    BlueprintRevisionCarousel(revisions = state.blueprintRevisions)
-                }
-            }
-
-            // TAB 4: Live Agent Feed
-            composable(NavScreen.Comms.route) {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    LiveDebateTickerPanel(ticks = state.liveDebateTicks)
-                }
-            }
-
-            // TAB 5: Prompt 2 — Active Persona Agent Cards with ⓘ modal
-            composable(NavScreen.Personas.route) {
-                AgentRosterPanel(
-                    agents = state.activeAgents ?: emptyList(),
-                    modifier = Modifier.fillMaxSize()
                 )
+                .padding(paddingValues)
+        ) {
+            NavHost(
+                navController = navController,
+                startDestination = NavScreen.Analytics.route
+            ) {
+                composable(NavScreen.Map.route) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        CoreSpatialCanvas(
+                            telemetry = telemetry,
+                            agents = state.activeAgents,
+                            userPrompt = userPrompt
+                        )
+                    }
+                }
+
+                composable(NavScreen.Analytics.route) {
+                    OverhauledDashboardScreen(
+                        state = state,
+                        onBackToPrompt = onResetAndNavigateBack
+                    )
+                }
+
+                composable(NavScreen.Blueprints.route) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        BlueprintRevisionCarousel(
+                            revisions = state.blueprintRevisions,
+                            onAmend = onAmendPolicy
+                        )
+                    }
+                }
+
+                composable(NavScreen.Comms.route) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LiveDebateTickerPanel(ticks = state.liveDebateTicks)
+                    }
+                }
+
+                composable(NavScreen.Personas.route) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AgentRosterPanel(agents = state.activeAgents)
+                    }
+                }
             }
         }
     }
 }
 
-/**
- * The Bottom Navigation Bar Component (5 tabs)
- */
 @Composable
-fun DashboardBottomNav(navController: NavHostController) {
+fun OverhauledBottomNav(navController: NavHostController) {
     val items = listOf(
         NavScreen.Map, NavScreen.Analytics, NavScreen.Blueprints,
         NavScreen.Comms, NavScreen.Personas
     )
-
-    // Watch the current route so we know which tab to highlight
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     NavigationBar(
-        containerColor = Color(0xFF0A0A0A),
-        contentColor = Color.Gray
+        containerColor = Color.Black.copy(alpha = 0.5f),
+        modifier = Modifier.blur(10.dp)
     ) {
         items.forEach { screen ->
             NavigationBarItem(
                 icon = { Icon(screen.icon, contentDescription = screen.title) },
-                label = { Text(screen.title) },
+                label = { Text(screen.title, fontSize = 10.sp) },
                 selected = currentRoute == screen.route,
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color(0xFF00E676), // Neon Green for active
+                    selectedIconColor = Color(0xFF00E676),
                     selectedTextColor = Color(0xFF00E676),
-                    unselectedIconColor = Color.DarkGray,
-                    unselectedTextColor = Color.DarkGray,
-                    indicatorColor = Color(0xFF003314) // Dark green glow behind active icon
+                    unselectedIconColor = Color.White.copy(alpha = 0.4f),
+                    unselectedTextColor = Color.White.copy(alpha = 0.4f),
+                    indicatorColor = Color.White.copy(alpha = 0.1f)
                 ),
                 onClick = {
                     navController.navigate(screen.route) {
@@ -144,53 +333,4 @@ fun DashboardBottomNav(navController: NavHostController) {
             )
         }
     }
-}
-
-/**
- * Visual Preview
- */
-@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_5")
-@Composable
-fun PreviewMainNavigationShell() {
-    val mockState = UrbanSimulationState(
-        projectId     = "saddar-bazaar",
-        summaryVerdict = "Pedestrian gap at G-9 crossing creates a systemic equity failure.",
-        summaryPoints  = listOf(
-            "Rickshaw pick-up zones must be set back 15 m from the main intersection.",
-            "Underpass northern approach has a critical lighting gap — 8 lamp posts required.",
-            "Eastern khokha vendors face displacement; a 3 m vending setback must be added.",
-            "New lane markings conflict with informal left-turn patterns at peak hours.",
-            "60-day public consultation required before political acceptance is achievable."
-        ),
-        scores = FeasibilityScores(84.5f, 42.0f, 70.0f),
-        liveDebateTicks = listOf(
-            LiveDebateTick("10:02:45", "Aisha", "female_commuter", "The proposed pedestrian bridge feels too isolated.", "WARNING")
-        ),
-        blueprintRevisions = listOf(
-            BlueprintRevision("REV-001", "Ground-level crosswalk at Sector G-9.", "High risk collision zone.", "Elevated pedestrian bridge.")
-        ),
-        activeAgents = listOf(
-            edu.skku.cs.citysmart.domain.PersonaMetadata(
-                name = "Aisha, Female Commuter",
-                iconTag = "👩",
-                shortDescription = "Daily commuter for whom safety dictates every route choice.",
-                characteristics = listOf(
-                    "Lighting conditions are the primary route-selection factor.",
-                    "Avoids unlit alleys and unmarked crossing points.",
-                    "Relies on scheduled public transport over informal options."
-                )
-            )
-        )
-    )
-
-    val mockTelemetry = SpatialTelemetryCollection(
-        features = listOf(
-            GeoJsonFeature(
-                geometry   = GeometryData("LineString", listOf(listOf(73.0479, 33.6844), listOf(73.0579, 33.6944))),
-                properties = TelemetryProperties("female_commuter", 1.5f)
-            )
-        )
-    )
-
-    MainNavigationShell(state = mockState, telemetry = mockTelemetry)
 }

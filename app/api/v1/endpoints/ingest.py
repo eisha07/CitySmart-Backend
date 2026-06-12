@@ -10,8 +10,9 @@ from app.models.database import ProjectModel, ProjectVersionModel, DocumentInsig
 from app.schemas.project import ProjectResponse
 from app.schemas.simulation import ProjectAmendmentRequest
 from app.services import vertex_service, gcs_service, pubsub_service
+from app.services.agent_engine import simulation_engine
 from google.genai import types
-from app.services.agent_engine import client
+from app.services.llm_client import client
 
 router = APIRouter(prefix="/projects", tags=["Urban Ingestion Engine"])
 
@@ -56,9 +57,8 @@ async def ingest_unstructured_urban_document(
         {payload.user_prompt}
         """
 
-        # Invoke Gemini 2.5 Flash using the strictly required GenerateContentConfig type wrapper
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
+        # Invoke Gemini Flash using the simulation engine's fallback logic to manage quotas
+        response = await simulation_engine._generate_with_fallback(
             contents=extraction_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -75,9 +75,16 @@ async def ingest_unstructured_urban_document(
         proposal_text = extracted_data["baseline_proposal_text"]
 
         # Check if project already exists
-        existing_proj = await db.execute(
-            select(ProjectModel).where(ProjectModel.id == proj_id)
-        )
+        print(f"DEBUG: Processing project {proj_id}")
+        try:
+            existing_proj = await db.execute(
+                select(ProjectModel).where(ProjectModel.id == proj_id)
+            )
+            print("DEBUG: DB execution worked")
+        except Exception as db_err:
+            print(f"DEBUG: DB execution failed: {db_err}")
+            raise
+        
         if existing_proj.scalar_one_or_none():
             # Generate a unique slug suffix to prevent collision
             proj_id = f"{proj_id}-{uuid.uuid4().hex[:4]}"
@@ -206,6 +213,9 @@ async def amend_project_version(
             "version_tag": payload.version_tag,
             "detail": "New architectural revision branch isolated and embedded into vector context.",
         }
+    except HTTPException as he:
+        await db.rollback()
+        raise he
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

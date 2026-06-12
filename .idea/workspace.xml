@@ -10,17 +10,57 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="85743bb9-8e49-4efe-a1c2-c566b379e6dd" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/checksums/checksums.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/checksums/checksums.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/checksums/sha1-checksums.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/checksums/sha1-checksums.bin" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/DashboardActivity.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/GenesisActivity.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/SplashActivity.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/GlassmorphicComponents.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/src/main/res/drawable/ic_citysmart_logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/setup_db.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test_cloud_db.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/resourceHashesCache.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/resourceHashesCache.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/outputFiles.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/outputFiles.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gradle/config.properties" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/config.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/file-system.probe" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/file-system.probe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/endpoints/ingest.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/endpoints/ingest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/v1/endpoints/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/v1/endpoints/simulation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/core/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/core/database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/agent_engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/agent_engine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/gcp_resources.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/gcp_resources.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/llm_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/llm_client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/pubsub.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/pubsub.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/pubsub_worker.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/pubsub_worker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/vertex_ai.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/vertex_ai.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/MainActivity.kt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/data/RetrofotClient.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/data/RetrofotClient.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/domain/DashboardModels.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/domain/DashboardModels.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/network/CitySmartApi.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/network/CitySmartApi.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/network/NetworkClient.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/network/NetworkClient.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/local.properties" beforeDir="false" afterPath="$PROJECT_DIR$/local.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/AgentInfoModal.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/AgentInfoModal.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/ArbitratorVerdictTerminal.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/ArbitratorVerdictTerminal.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/BlueprintRevisionCarousel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/BlueprintRevisionCarousel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/CoreSpatialCanvas.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/CoreSpatialCanvas.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/LiveDebateTickerPanel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/components/LiveDebateTickerPanel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/screens/GenesisInputScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/screens/GenesisInputScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/screens/UrbanDashboardScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/screens/UrbanDashboardScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/theme/Color.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/theme/Color.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/theme/Theme.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/theme/Theme.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/theme/Type.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/ui/theme/Type.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/viewmodel/DashboardViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/edu/skku/cs/citysmart/viewmodel/DashboardViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/test/java/edu/skku/cs/citysmart/DashboardDataMappingTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/test/java/edu/skku/cs/citysmart/DashboardDataMappingTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_urban_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_urban_pipeline.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,7 +70,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[LocalEmulator::path=/Users/fatimatuzzahra/.android/avd/Pixel_5.avd]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -49,6 +89,9 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-9.1.0-bin/9agqghryom9wkf8r80qlhnts3/gradle-9.1.0" javaHome="$APPLICATION_HOME_DIR$/jbr/Contents/Home" gradleVersion="9.1.0" />
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
 }</component>
@@ -57,23 +100,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
-    &quot;Compose Preview.PreviewMainNavigationShell.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;android.gradle.sync.needed&quot;: &quot;true&quot;,
-    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feature-android-dashboard&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/eisha/Desktop/CItySmart&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Android App.app.executor": "Run",
+    "Compose Preview.PreviewMainNavigationShell.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "com.google.services.firebase.aqiPopupShown": "true",
+    "git-widget-placeholder": "mob__app",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/fatimatuzzahra/Downloads/Mob_app_project_CitySmart"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Android App.app">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="CitySmart.app" />
@@ -220,6 +265,10 @@
         <option name="Android.Gradle.BeforeRunTask" enabled="true" />
       </method>
     </configuration>
+    <list>
+      <item itemvalue="Android App.app" />
+      <item itemvalue="Compose Preview.PreviewMainNavigationShell" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Compose Preview.PreviewMainNavigationShell" />
@@ -241,12 +290,12 @@
       <map>
         <entry key="edu.skku.cs.citysmart">
           <value>
-            <CheckInfo lastCheckTimestamp="1779183192427" />
+            <CheckInfo lastCheckTimestamp="1781192155789" />
           </value>
         </entry>
         <entry key="edu.skku.cs.citysmart.test">
           <value>
-            <CheckInfo lastCheckTimestamp="1779183192426" />
+            <CheckInfo lastCheckTimestamp="1781192155790" />
           </value>
         </entry>
       </map>
